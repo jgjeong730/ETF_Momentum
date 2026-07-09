@@ -212,7 +212,6 @@ let allRankedEtfs = [];
 let newlyListedEtfs = [];
 let sectorMap = new Map();
 let activeSectorFilter = null;
-let latestAnalysisResult = null;
 let etfDataCache = new Map();
 let etfHistoryCache = new Map(); // For fast, per-ETF history lookups
 let currentSortOrder = 'desc';
@@ -258,7 +257,6 @@ const aggregateToWeekly = (dailyData) => {
 };
 document.addEventListener('DOMContentLoaded', () => {
     const fetchButton = document.getElementById('fetch-button');
-    const analysisButton = document.getElementById('analysis-button');
     const loader = document.getElementById('loader');
     const tableContainer = document.getElementById('table-container');
     const tableBody = document.getElementById('etf-table-body');
@@ -301,35 +299,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const aiAnalysisLoader = document.getElementById('ai-analysis-loader');
     const aiAnalysisError = document.getElementById('ai-analysis-error');
     const aiAnalysisResults = document.getElementById('ai-analysis-results');
-    // Analysis Modal elements
-    const analysisModal = document.getElementById('analysis-modal');
-    const analysisModalCloseButton = document.getElementById('analysis-modal-close-button');
-    const analysisModalLoader = document.getElementById('analysis-modal-loader');
-    const analysisModalError = document.getElementById('analysis-modal-error');
-    const analysisModalData = document.getElementById('analysis-modal-data');
-    const analysisTableBodyPositive = document.getElementById('analysis-table-body-positive');
-    const analysisTableBodyNegative = document.getElementById('analysis-table-body-negative');
-    const analysisSummaryList = document.getElementById('analysis-summary-list');
-    // Export Modal elements
-    const exportModal = document.getElementById('export-modal');
-    const exportModalCloseButton = document.getElementById('export-modal-close-button');
-    const exportToNotebookLMButton = document.getElementById('export-to-notebook-lm-button');
-    const exportContent = document.getElementById('export-content');
-    const copyExportButton = document.getElementById('copy-export-button');
     // Sector elements
     const sectorSummary = document.getElementById('sector-summary');
     const sectorLegend = document.getElementById('sector-legend');
-    // Cache elements
-    const uploadCacheInput = document.getElementById('upload-cache-input');
-    const cacheStatus = document.getElementById('cache-status');
-    const downloadCacheButton = document.getElementById('download-cache-button');
-    const updateCacheButton = document.getElementById('update-cache-button');
-    const downloadStatusMessage = document.getElementById('download-status-message');
-    // Indicator Filter Elements
-    const indicatorFilterGroups = document.querySelectorAll('.filter-group');
     // Fix: Using any for charts to avoid complex Chart.js type compatibility issues in this environment
     let charts = {};
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !analysisButton || !analysisModal || !analysisModalCloseButton || !analysisModalLoader || !analysisModalError || !analysisModalData || !analysisTableBodyPositive || !analysisTableBodyNegative || !analysisSummaryList || !exportModal || !exportModalCloseButton || !exportToNotebookLMButton || !exportContent || !copyExportButton || !uploadCacheInput || !cacheStatus || !downloadCacheButton || !updateCacheButton || !downloadStatusMessage || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -502,8 +477,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 etfHistoryCache.set(item.isinCd, history);
             }
-            cacheStatus.textContent = `✅ 캐시 업데이트됨. ${etfDataCache.size}개 날짜 데이터 보유.`;
-            downloadCacheButton.textContent = '업데이트된 캐시 저장';
             console.log(`Cached new data for date: ${apiResult.actualDate}`);
             return apiResult;
         }
@@ -1342,7 +1315,6 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         const rankChangePeriod = parseInt(rankChangePeriodInput.value, 10) || 1;
         fetchButton.disabled = true;
-        analysisButton.classList.add('hidden');
         showNewEtfsButton.classList.add('hidden');
         loader.classList.remove('hidden');
         tableContainer.classList.add('hidden');
@@ -1353,7 +1325,6 @@ document.addEventListener('DOMContentLoaded', () => {
         newlyListedEtfs = [];
         sectorMap = new Map();
         activeSectorFilter = null;
-        latestAnalysisResult = null;
         renderResults();
         try {
             const dateValue = baseDateInput.value;
@@ -1376,98 +1347,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             const currentResultsUnsorted = currentData.results;
             const pastResultsUnsorted = pastData ? pastData.results : null;
-            // --- Ensure indicators are present before filtering ---
-            const enrichedItems = [];
-            for (const item of currentResultsUnsorted) {
-                const history = getHistoryFromCache(item.isinCd);
-                let historyForCalc = history ? [...history] : [];
-                const index = historyForCalc.findIndex(h => h.basDt === item.basDt);
-                if (index > -1) {
-                    historyForCalc[index] = item;
-                }
-                else {
-                    historyForCalc.push(item);
-                }
-                historyForCalc.sort((a, b) => a.basDt.localeCompare(b.basDt));
-                if (historyForCalc.length > 14) {
-                    const enrichedHistory = calculateAllIndicatorsForHistory(historyForCalc);
-                    const finalItem = enrichedHistory.find(h => h.basDt === item.basDt);
-                    enrichedItems.push(finalItem || item);
-                }
-                else {
-                    enrichedItems.push({ ...item, stochastic_k: null, rsi: null, macd: null, macd_hist: null, macd_weekly: null, macd_hist_weekly: null, stochastic_diff: null, rsi_diff: null });
-                }
-            }
-            const resultsWithIndicators = enrichedItems;
-            // --- Apply Indicator Filters ---
-            const filtersToApply = [];
-            indicatorFilterGroups.forEach(group => {
-                const checkbox = group.querySelector('.filter-enable-checkbox');
-                if (checkbox && checkbox.checked) {
-                    const id = checkbox.id;
-                    const typeSelect = group.querySelector('.filter-type-select');
-                    const valueInputs = group.querySelectorAll('.filter-value-input');
-                    const value1Input = valueInputs[0];
-                    const value2Input = valueInputs[1];
-                    const type = typeSelect ? typeSelect.value : 'gte';
-                    const value1 = value1Input ? parseFloat(value1Input.value) : NaN;
-                    const value2 = value2Input ? parseFloat(value2Input.value) : NaN;
-                    let key = '';
-                    if (id.includes('stoch-d'))
-                        key = 'stochastic_k';
-                    else if (id.includes('stoch-w'))
-                        key = 'stochastic_k_weekly';
-                    else if (id.includes('stoch-diff'))
-                        key = 'stochastic_diff';
-                    else if (id.includes('rsi-d'))
-                        key = 'rsi';
-                    else if (id.includes('rsi-w'))
-                        key = 'rsi_weekly';
-                    else if (id.includes('rsi-diff'))
-                        key = 'rsi_diff';
-                    else if (id.includes('macd-d'))
-                        key = 'macd';
-                    else if (id.includes('macd-hist-d'))
-                        key = 'macd_hist';
-                    else if (id.includes('macd-w'))
-                        key = 'macd_weekly';
-                    else if (id.includes('macd-hist-w'))
-                        key = 'macd_hist_weekly';
-                    if (key && !isNaN(value1)) {
-                        filtersToApply.push({ key, type, value1, value2 });
-                    }
-                }
-            });
-            let filteredByIndicators = resultsWithIndicators;
-            if (filtersToApply.length > 0) {
-                filteredByIndicators = resultsWithIndicators.filter(item => {
-                    return filtersToApply.every(filter => {
-                        const itemValue = item[filter.key];
-                        if (itemValue === null || itemValue === undefined) {
-                            return false; // Exclude items without the required indicator value
-                        }
-                        switch (filter.type) {
-                            case 'gte':
-                                return itemValue >= filter.value1;
-                            case 'lte':
-                                return itemValue <= filter.value1;
-                            case 'between':
-                                if (isNaN(filter.value2))
-                                    return false; // Both values must be present for 'between'
-                                const min = Math.min(filter.value1, filter.value2);
-                                const max = Math.max(filter.value1, filter.value2);
-                                return itemValue >= min && itemValue <= max;
-                            default:
-                                return true;
-                        }
-                    });
-                });
-            }
-            if (resultsWithIndicators.length > 0 && filteredByIndicators.length === 0 && filtersToApply.length > 0) {
-                throw new Error(`설정된 보조 지표 필터 조건에 맞는 ETF가 없습니다. 필터 값을 완화하거나 비활성화해주세요.`);
-            }
-            const validMomentumEtfs = filteredByIndicators.filter(item => item.momentumScore !== null && isFinite(item.momentumScore));
-            newlyListedEtfs = filteredByIndicators.filter(item => item.momentumScore === null || !isFinite(item.momentumScore));
+            const validMomentumEtfs = currentResultsUnsorted.filter(item => item.momentumScore !== null && isFinite(item.momentumScore));
+            newlyListedEtfs = currentResultsUnsorted.filter(item => item.momentumScore === null || !isFinite(item.momentumScore));
             if (validMomentumEtfs.length === 0 && newlyListedEtfs.length > 0) {
                 throw new Error(`모든 ETF가 신규 상장 종목이거나 데이터가 부족하여 모멘텀 순위를 계산할 수 없습니다. '신규 ETF 보기'를 확인하여 종목을 확인해주세요.`);
             }
@@ -1486,7 +1367,6 @@ document.addEventListener('DOMContentLoaded', () => {
             currentSortOrder = 'desc'; // Reset sort order on new calculation
             currentSortColumn = 'rank';
             renderResults();
-            analysisButton.classList.remove('hidden');
             if (newlyListedEtfs.length > 0) {
                 showNewEtfsButton.classList.remove('hidden');
                 showNewEtfsButton.textContent = `신규 ETF 보기 (${newlyListedEtfs.length})`;
@@ -1532,98 +1412,6 @@ document.addEventListener('DOMContentLoaded', () => {
         delete modal.dataset.itemName;
         Object.values(charts).forEach(chart => chart?.destroy());
         charts = {};
-    };
-    // --- Analysis Modal Logic ---
-    const openAnalysisModal = () => {
-        analysisModal.classList.remove('hidden');
-        document.body.style.overflow = 'hidden';
-    };
-    const closeAnalysisModal = () => {
-        analysisModal.classList.add('hidden');
-        document.body.style.overflow = '';
-    };
-    // --- Export Modal Logic ---
-    const openExportModal = () => {
-        exportModal.classList.remove('hidden');
-    };
-    const closeExportModal = () => {
-        exportModal.classList.add('hidden');
-    };
-    const handleExportToNotebookLM = () => {
-        if (!latestAnalysisResult) {
-            alert('분석 결과가 없습니다. 먼저 분석을 실행해주세요.');
-            return;
-        }
-        const { positiveData, negativeData, analysis } = latestAnalysisResult;
-        const formatTable = (title, data) => {
-            if (data.length === 0)
-                return `${title}\n- 데이터 없음\n\n`;
-            let tableString = `${title}\n`;
-            tableString += `순위 | 종목명 | 섹터 | 모멘텀 점수\n`;
-            tableString += `--- | --- | --- | ---\n`;
-            data.forEach(item => {
-                tableString += `${item.rank} | ${item.name} | ${item.sector} | ${item.momentumScore}\n`;
-            });
-            return tableString + '\n';
-        };
-        const formatAnalysis = (title, analysisData) => {
-            if (!analysisData || analysisData.length === 0)
-                return `${title}\n- 데이터 없음\n\n`;
-            let analysisString = `${title}\n`;
-            analysisData.forEach(item => {
-                analysisString += `**${item.sector}**\n`;
-                analysisString += `- 주요 종목: ${item.majorEtfs}\n`;
-                analysisString += `- 트렌드: ${item.trend}\n`;
-            });
-            return analysisString + '\n';
-        };
-        let content = `## ETF 모멘텀 분석 결과 및 동영상 스크립트 제작 요청\n\n`;
-        content += `**요청사항:**\n당신은 금융 시장 분석 전문가이자 유튜버입니다. 아래 제공된 ETF 모멘텀 데이터를 바탕으로, 일반 투자자들이 이해하기 쉬운 1분 분량의 유튜브 쇼츠(Shorts) 동영상 스크립트를 작성해주세요. 스크립트는 도입부, 본문(상승/하락 TOP 섹터 분석), 결론(시장 요약 및 투자 조언)의 구조를 가져야 합니다.\n\n`;
-        content += `--- \n\n`;
-        content += `## 원본 데이터\n\n`;
-        content += formatTable('### ▲ 상승 모멘텀 상위 ETF', positiveData);
-        content += formatTable('### ▼ 하락 모멘텀 상위 ETF', negativeData);
-        content += `--- \n\n`;
-        content += `## AI 분석 요약\n\n`;
-        content += formatAnalysis('### ▲ 상승 모멘텀 주도 섹터 분석', analysis.positiveSectorAnalysis);
-        content += formatAnalysis('### ▼ 하락 모멘텀 주도 섹터 분석', analysis.negativeSectorAnalysis);
-        content += `### 총평\n`;
-        if (analysis.overallSummary && analysis.overallSummary.length > 0) {
-            analysis.overallSummary.forEach((item) => {
-                content += `- ${item}\n`;
-            });
-        }
-        else {
-            content += `- 데이터 없음\n`;
-        }
-        exportContent.value = content;
-        openExportModal();
-    };
-    const handleCopyExportContent = async () => {
-        try {
-            await navigator.clipboard.writeText(exportContent.value);
-            copyExportButton.textContent = '복사 완료!';
-            setTimeout(() => {
-                copyExportButton.textContent = '텍스트 복사';
-            }, 2000);
-        }
-        catch (err) {
-            console.error('클립보드 복사 실패:', err);
-            copyExportButton.textContent = '복사 실패';
-            setTimeout(() => {
-                copyExportButton.textContent = '텍스트 복사';
-            }, 2000);
-        }
-    };
-    const fetchAnalysis = async () => {
-        // AI(Gemini) 기반 시장 전체 섹터 분석 기능은 이 복제본에서 비활성화되어 있습니다.
-        if (allRankedEtfs.length === 0)
-            return;
-        openAnalysisModal();
-        analysisModalLoader.classList.add('hidden');
-        analysisModalData.classList.add('hidden');
-        analysisModalError.textContent = 'AI 분석 기능은 이 복제본에서 지원되지 않습니다. (Gemini API 백엔드 미포함)';
-        analysisModalError.classList.remove('hidden');
     };
     const handleFilterClick = (event) => {
         const target = event.target;
@@ -1683,30 +1471,6 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
-        }
-    });
-    analysisModalCloseButton.addEventListener('click', closeAnalysisModal);
-    analysisModal.addEventListener('click', (event) => {
-        if (event.target === analysisModal) {
-            closeAnalysisModal();
-        }
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !analysisModal.classList.contains('hidden')) {
-            closeAnalysisModal();
-        }
-    });
-    exportToNotebookLMButton.addEventListener('click', handleExportToNotebookLM);
-    copyExportButton.addEventListener('click', handleCopyExportContent);
-    exportModalCloseButton.addEventListener('click', closeExportModal);
-    exportModal.addEventListener('click', (event) => {
-        if (event.target === exportModal) {
-            closeExportModal();
-        }
-    });
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !exportModal.classList.contains('hidden')) {
-            closeExportModal();
         }
     });
     downloadCsvButton.addEventListener('click', async () => {
@@ -1878,275 +1642,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         return enrichedHistory;
     };
-    // --- Cache Logic ---
-    const buildHistoryCache = () => {
-        etfHistoryCache.clear();
-        const tempHistoryMap = new Map();
-        for (const dailyItems of etfDataCache.values()) {
-            for (const item of dailyItems) {
-                if (!tempHistoryMap.has(item.isinCd)) {
-                    tempHistoryMap.set(item.isinCd, []);
-                }
-                tempHistoryMap.get(item.isinCd).push(item);
-            }
-        }
-        // Sort each history
-        for (const [isinCd, history] of tempHistoryMap.entries()) {
-            history.sort((a, b) => a.basDt.localeCompare(b.basDt));
-            etfHistoryCache.set(isinCd, history);
-        }
-        console.log(`Built history cache for ${etfHistoryCache.size} ETFs.`);
-    };
-    const recalculateIndicatorsForAllEtfs = async (statusElement) => {
-        const allItems = Array.from(etfDataCache.values()).flat();
-        const uniqueEtfs = Array.from(new Map(allItems.map(item => [item.isinCd, item])).values());
-        const totalEtfs = uniqueEtfs.length;
-        for (let i = 0; i < totalEtfs; i++) {
-            const etf = uniqueEtfs[i];
-            const isinCd = etf.isinCd;
-            statusElement.textContent = `⏳ [${i + 1}/${totalEtfs}] "${etf.itmsNm}" 보조 지표 계산 중...`;
-            const history = getHistoryFromCache(isinCd);
-            if (history && history.length > 14) {
-                const enrichedHistory = calculateAllIndicatorsForHistory(history);
-                const enrichedHistoryMap = new Map(enrichedHistory.map(item => [item.basDt, item]));
-                for (const dateStr of etfDataCache.keys()) {
-                    if (enrichedHistoryMap.has(dateStr)) {
-                        const enrichedItem = enrichedHistoryMap.get(dateStr);
-                        const dayData = etfDataCache.get(dateStr);
-                        const itemIndex = dayData.findIndex(it => it.isinCd === isinCd);
-                        if (itemIndex > -1) {
-                            dayData[itemIndex] = enrichedItem;
-                        }
-                    }
-                }
-            }
-            if (i > 0 && i % 10 === 0) {
-                await new Promise(resolve => setTimeout(resolve, 0));
-            }
-        }
-        // After recalculating indicators which might alter date items, rebuild history cache for consistency
-        buildHistoryCache();
-    };
-    const upgradeCacheWithIndicators = async () => {
-        cacheStatus.textContent = '⏳ 구버전 캐시 감지. 보조 지표를 계산하여 업그레이드 시작...';
-        fetchButton.disabled = true;
-        downloadCacheButton.disabled = true;
-        await new Promise(resolve => setTimeout(resolve, 0));
-        await recalculateIndicatorsForAllEtfs(cacheStatus);
-        fetchButton.disabled = false;
-        downloadCacheButton.disabled = false;
-        downloadCacheButton.textContent = '업그레이드된 캐시 저장';
-        cacheStatus.textContent = `✅ 캐시 업그레이드 완료! 이제 보조 지표가 포함되었습니다.`;
-    };
-    uploadCacheInput.addEventListener('change', (event) => {
-        const file = event.target.files?.[0];
-        if (!file) {
-            cacheStatus.textContent = '선택된 파일 없음';
-            return;
-        }
-        cacheStatus.textContent = `${file.name} 불러오는 중...`;
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            try {
-                const text = e.target?.result;
-                const data = JSON.parse(text);
-                if (typeof data !== 'object' || data === null) {
-                    throw new Error('유효하지 않은 JSON 형식입니다. 최상위 요소는 객체여야 합니다.');
-                }
-                etfDataCache.clear();
-                let dateCount = 0;
-                for (const dateStr in data) {
-                    if (Object.prototype.hasOwnProperty.call(data, dateStr) && Array.isArray(data[dateStr])) {
-                        etfDataCache.set(dateStr, data[dateStr]);
-                        dateCount++;
-                    }
-                }
-                buildHistoryCache();
-                const firstDateKey = etfDataCache.keys().next().value;
-                const needsUpgrade = firstDateKey &&
-                    etfDataCache.has(firstDateKey) &&
-                    etfDataCache.get(firstDateKey).length > 0 &&
-                    etfDataCache.get(firstDateKey)[0].stochastic_k_weekly === undefined;
-                if (needsUpgrade) {
-                    await upgradeCacheWithIndicators();
-                }
-                else {
-                    cacheStatus.textContent = `✅ ${dateCount}개 날짜 데이터 로드 완료. (최신 버전)`;
-                }
-                downloadCacheButton.textContent = '현재 캐시 데이터 저장';
-                updateCacheButton.classList.remove('hidden');
-                uploadCacheInput.value = ''; // Allow re-uploading the same file
-            }
-            catch (error) {
-                console.error('Failed to load cache file:', error);
-                cacheStatus.textContent = `❌ 캐시 파일 로드 실패: ${error.message}`;
-            }
-        };
-        reader.onerror = () => {
-            cacheStatus.textContent = `❌ 파일을 읽는 중 오류가 발생했습니다.`;
-        };
-        reader.readAsText(file);
-    });
-    const downloadCurrentCache = () => {
-        if (etfDataCache.size === 0) {
-            downloadStatusMessage.textContent = '다운로드할 캐시 데이터가 없습니다.';
-            return;
-        }
-        downloadStatusMessage.textContent = '현재 캐시 데이터를 파일로 변환하는 중...';
-        try {
-            const cacheObject = {};
-            // Sort dates for consistent file output
-            const sortedDates = Array.from(etfDataCache.keys()).sort();
-            for (const date of sortedDates) {
-                cacheObject[date] = etfDataCache.get(date);
-            }
-            const jsonString = JSON.stringify(cacheObject); // No pretty print for smaller file size
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `etf_cache_data_${formatDate(new Date())}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            downloadStatusMessage.textContent = '✅ 현재 캐시 다운로드 완료!';
-        }
-        catch (error) {
-            console.error('Failed to download current cache:', error);
-            downloadStatusMessage.textContent = `❌ 캐시 다운로드 오류: ${error.message}`;
-        }
-    };
-    const createAndDownloadNewCacheFromAPI = async () => {
-        const apiKey = apiKeyInput.value.trim();
-        const baseDateStr = baseDateInput.value;
-        if (!apiKey || !baseDateStr) {
-            downloadStatusMessage.textContent = 'API 키와 기준일을 먼저 설정해주세요.';
-            return;
-        }
-        downloadCacheButton.disabled = true;
-        downloadStatusMessage.textContent = '⏳ ETF 전체 목록을 조회하는 중...';
-        try {
-            const baseDate = new Date(baseDateStr);
-            const endDate = new Date(baseDate);
-            const beginDate = new Date(baseDate);
-            beginDate.setFullYear(beginDate.getFullYear() - 1);
-            const allEtfsResult = await fetchEtfDataForDate(apiKey, formatDate(baseDate));
-            if (!allEtfsResult || allEtfsResult.length === 0) {
-                throw new Error('기준일의 ETF 목록을 가져올 수 없습니다. 날짜를 확인해주세요.');
-            }
-            const dataByDate = new Map(); // date -> isin -> item
-            for (let i = 0; i < allEtfsResult.length; i++) {
-                const etf = allEtfsResult[i];
-                downloadStatusMessage.textContent = `⏳ [${i + 1}/${allEtfsResult.length}] "${etf.itmsNm}" 1년치 데이터 및 보조 지표 계산 중...`;
-                const history = await fetchHistoryWithChunking(apiKey, etf.isinCd, beginDate, endDate);
-                if (history && history.length > 0) {
-                    const historyWithIndicators = calculateAllIndicatorsForHistory(history);
-                    for (const dayData of historyWithIndicators) {
-                        if (!dataByDate.has(dayData.basDt)) {
-                            dataByDate.set(dayData.basDt, new Map());
-                        }
-                        dataByDate.get(dayData.basDt).set(dayData.isinCd, dayData);
-                    }
-                }
-                await new Promise(resolve => setTimeout(resolve, 50));
-            }
-            downloadStatusMessage.textContent = '⏳ 다운로드 파일을 생성하는 중...';
-            const finalDataObject = {};
-            const sortedDates = Array.from(dataByDate.keys()).sort();
-            for (const date of sortedDates) {
-                finalDataObject[date] = Array.from(dataByDate.get(date).values());
-            }
-            const jsonString = JSON.stringify(finalDataObject);
-            const blob = new Blob([jsonString], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.href = url;
-            link.download = `etf_full_data_1yr_until_${formatDate(endDate)}.json`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-            downloadStatusMessage.textContent = '✅ 전체 데이터 다운로드 완료!';
-        }
-        catch (error) {
-            console.error('Full data download failed:', error);
-            downloadStatusMessage.textContent = `❌ 오류 발생: ${error.message}`;
-        }
-        finally {
-            downloadCacheButton.disabled = false;
-        }
-    };
-    const updateAndRecalculateCache = async () => {
-        const apiKey = apiKeyInput.value.trim();
-        if (!apiKey) {
-            downloadStatusMessage.textContent = 'API 키를 먼저 설정해주세요.';
-            return;
-        }
-        if (etfDataCache.size === 0) {
-            downloadStatusMessage.textContent = '업데이트할 캐시가 없습니다. 먼저 캐시 파일을 불러오세요.';
-            return;
-        }
-        updateCacheButton.disabled = true;
-        downloadCacheButton.disabled = true;
-        fetchButton.disabled = true;
-        try {
-            const sortedDates = Array.from(etfDataCache.keys()).sort();
-            const latestDateStr = sortedDates[sortedDates.length - 1];
-            const latestDate = new Date(parseInt(latestDateStr.substring(0, 4), 10), parseInt(latestDateStr.substring(4, 6), 10) - 1, parseInt(latestDateStr.substring(6, 8), 10));
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
-            if (latestDate >= today) {
-                downloadStatusMessage.textContent = '✅ 캐시가 이미 최신 상태입니다.';
-                return;
-            }
-            const datesToFetch = [];
-            let currentDate = new Date(latestDate);
-            currentDate.setDate(currentDate.getDate() + 1);
-            while (currentDate <= today) {
-                const day = currentDate.getDay();
-                if (day !== 0 && day !== 6) {
-                    datesToFetch.push(new Date(currentDate));
-                }
-                currentDate.setDate(currentDate.getDate() + 1);
-            }
-            if (datesToFetch.length === 0) {
-                downloadStatusMessage.textContent = '✅ 캐시가 이미 최신 상태입니다 (주말 제외).';
-                return;
-            }
-            downloadStatusMessage.textContent = `⏳ ${formatDate(datesToFetch[0])}부터 ${formatDate(datesToFetch[datesToFetch.length - 1])}까지 ${datesToFetch.length}일 분량의 데이터를 가져오는 중...`;
-            let newItemsFetched = 0;
-            for (const date of datesToFetch) {
-                const dateStr = formatDate(date);
-                const items = await fetchEtfDataForDate(apiKey, dateStr);
-                if (items && items.length > 0) {
-                    etfDataCache.set(dateStr, items);
-                    newItemsFetched++;
-                }
-                await new Promise(resolve => setTimeout(resolve, 100)); // Be nice to the API
-            }
-            if (newItemsFetched === 0) {
-                downloadStatusMessage.textContent = '✅ 새로운 거래일 데이터가 없습니다. 캐시는 최신입니다.';
-                return;
-            }
-            buildHistoryCache(); // Rebuild history cache after fetching new dates.
-            downloadStatusMessage.textContent = `✅ ${newItemsFetched}일 분량의 신규 데이터 추가 완료. 전체 보조 지표를 재계산합니다...`;
-            await new Promise(resolve => setTimeout(resolve, 0));
-            await recalculateIndicatorsForAllEtfs(downloadStatusMessage);
-            downloadStatusMessage.textContent = '✅ 캐시 업데이트 및 보조 지표 재계산 완료!';
-            cacheStatus.textContent = `✅ 캐시 업데이트됨. ${etfDataCache.size}개 날짜 데이터 보유.`;
-            downloadCacheButton.textContent = '업데이트된 캐시 저장';
-        }
-        catch (error) {
-            console.error('Failed to update cache:', error);
-            downloadStatusMessage.textContent = `❌ 캐시 업데이트 실패: ${error.message}`;
-        }
-        finally {
-            updateCacheButton.disabled = false;
-            downloadCacheButton.disabled = false;
-            fetchButton.disabled = false;
-        }
-    };
     // Handle responsive table column width on horizontal scroll for mobile
     if (tableContainer) {
         tableContainer.addEventListener('scroll', () => {
@@ -2192,46 +1687,12 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     fetchButton.addEventListener('click', calculateAndStoreResults);
-    analysisButton.addEventListener('click', fetchAnalysis);
     showNewEtfsButton.addEventListener('click', renderNewEtfs);
-    updateCacheButton.addEventListener('click', updateAndRecalculateCache);
     fetchAiAnalysisButton.addEventListener('click', async () => {
         const itemName = modal.dataset.itemName;
         const isinCd = modal.dataset.isinCd;
         if (itemName && isinCd) {
             await fetchAndDisplayAiAnalysis(itemName, isinCd);
         }
-    });
-    downloadCacheButton.addEventListener('click', async () => {
-        if (etfDataCache.size > 0) {
-            downloadCurrentCache();
-        }
-        else {
-            await createAndDownloadNewCacheFromAPI();
-        }
-    });
-    indicatorFilterGroups.forEach(group => {
-        const checkbox = group.querySelector('.filter-enable-checkbox');
-        const typeSelect = group.querySelector('.filter-type-select');
-        const valueInputs = group.querySelectorAll('.filter-value-input');
-        const value1Input = valueInputs[0];
-        const value2Input = valueInputs[1];
-        if (!checkbox || !typeSelect || !value1Input || !value2Input)
-            return;
-        const toggleInputs = () => {
-            const isEnabled = checkbox.checked;
-            typeSelect.disabled = !isEnabled;
-            value1Input.disabled = !isEnabled;
-            value2Input.disabled = !isEnabled;
-            if (typeSelect.value === 'between') {
-                value2Input.classList.remove('hidden');
-            }
-            else {
-                value2Input.classList.add('hidden');
-            }
-        };
-        checkbox.addEventListener('change', toggleInputs);
-        typeSelect.addEventListener('change', toggleInputs);
-        toggleInputs();
     });
 });
