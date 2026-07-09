@@ -1,0 +1,1474 @@
+<style>
+  @import url(https://fonts.googleapis.com/css?family=Google+Sans+Text);
+  html {
+    font-family: 'Google Sans Text', 'Google Sans';
+    font-size: 14px;
+    color-scheme: light dark;
+    background: light-dark(white, black);
+    color: light-dark(black, white);
+  }
+</style>
+<style>
+:root {
+    --background-color: #f8f9fa;
+    --card-background-color: #ffffff;
+    --text-color: #212529;
+    --primary-color: #007bff;
+    --primary-hover-color: #0056b3;
+    --border-color: #dee2e6;
+    --font-family: 'Noto Sans KR', 'Roboto', sans-serif;
+    --color-positive: #e03131;
+    --color-negative: #1971c2;
+    --color-neutral: #495057;
+}
+
+body {
+    font-family: var(--font-family);
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 24px;
+    line-height: 1.6;
+}
+
+#app-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+header {
+    text-align: center;
+}
+
+h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+h2 {
+    font-size: 1.5rem;
+    font-weight: 500;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 8px;
+    margin-top: 0;
+}
+
+header p {
+    font-size: 1.1rem;
+    color: #6c757d;
+}
+
+.card {
+    background-color: var(--card-background-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 24px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.controls-container {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 24px;
+    flex-wrap: wrap;
+}
+
+.api-key-container, .date-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 300px;
+}
+
+.api-key-container label, .date-container label, .weight-input-group label, .filter-input-group label, .display-count-group label, .rank-change-period-group label {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-color);
+}
+
+#api-key-input, #base-date-input, .weight-input-group input, .filter-input-group input, .display-count-group input, .rank-change-period-group input {
+    font-family: var(--font-family);
+    padding: 10px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    font-size: 1rem;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.075);
+    height: 45px;
+    box-sizing: border-box;
+}
+
+#api-key-input:focus, #base-date-input:focus, .weight-input-group input:focus, .filter-input-group input:focus, .display-count-group input:focus, .rank-change-period-group input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
+}
+
+.momentum-controls {
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 16px;
+}
+
+.analysis-controls {
+    display: flex;
+    justify-content: center;
+    margin-top: -8px; /* Reduce gap slightly */
+}
+
+.weight-input-group, .filter-input-group, .display-count-group, .rank-change-period-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.weight-input-group input, .filter-input-group input, .display-count-group input {
+    width: 70px;
+}
+.rank-change-period-group input {
+     width: 120px;
+}
+
+
+#fetch-button {
+    font-family: var(--font-family);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 24px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+    height: 45px;
+}
+
+#fetch-button:hover:not(:disabled) {
+    background-color: var(--primary-hover-color);
+    transform: translateY(-2px);
+}
+
+#fetch-button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+#analysis-button,
+#show-new-etfs-button {
+    font-family: var(--font-family);
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0 24px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+    height: 45px;
+}
+#show-new-etfs-button {
+    margin-top: 0;
+}
+#analysis-button {
+    margin-top: 16px;
+}
+
+
+#analysis-button:hover:not(:disabled),
+#show-new-etfs-button:hover:not(:disabled) {
+    background-color: #5a6268;
+    transform: translateY(-2px);
+}
+
+#response-container, #new-etfs-container {
+    min-height: 100px;
+}
+
+#table-container, .table-container {
+    overflow-x: auto;
+    margin-top: 16px;
+    max-height: 75vh;
+    overflow-y: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: right;
+    white-space: nowrap;
+    font-size: 0.9rem;
+    border-spacing: 0; /* Important for sticky header */
+}
+
+th, td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color);
+    border-right: 1px solid var(--border-color); /* Add vertical lines for sticky columns */
+}
+
+th:last-child, td:last-child {
+    border-right: none; /* Remove last vertical line */
+}
+
+th {
+    background-color: #f8f9fa;
+    font-weight: 500;
+    text-align: center;
+    position: sticky;
+    top: 0;
+    z-index: 3; /* Increased for layering over sticky columns */
+}
+
+/* Ensure odd rows have a background so sticky cells are not transparent */
+tbody tr {
+    background-color: var(--card-background-color);
+}
+
+tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+tbody tr:hover:not(.momentum-separator) {
+    background-color: #e9ecef;
+}
+
+tr.momentum-separator td {
+    background-color: #e9ecef;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text-color);
+    padding: 8px;
+}
+
+td:nth-child(1), td:nth-child(2) {
+    text-align: center;
+}
+
+.item-name-clickable {
+    cursor: pointer;
+    font-weight: 700;
+}
+
+.item-name-clickable:hover {
+    text-decoration: underline;
+}
+
+#rank-header, #rank-change-header {
+    cursor: pointer;
+    user-select: none; /* prevent text selection on double click */
+}
+#rank-header:hover, #rank-change-header:hover {
+    background-color: #e9ecef;
+}
+
+
+/* ---- STICKY COLUMN STYLES START ---- */
+/* Define widths for the first 3 columns for reliable positioning */
+th:nth-child(1), td:nth-child(1) { width: 80px; min-width: 80px; }
+th:nth-child(2), td:nth-child(2) { width: 90px; min-width: 90px; }
+th:nth-child(3), td:nth-child(3) { width: 250px; min-width: 250px; text-align: left; }
+
+/* Make columns sticky */
+th:nth-child(1), td:nth-child(1) { position: sticky; left: 0; z-index: 2; }
+th:nth-child(2), td:nth-child(2) { position: sticky; left: 80px; z-index: 2; }
+th:nth-child(3), td:nth-child(3) { position: sticky; left: 170px; /* 80 + 90 */ z-index: 2; }
+
+/* Ensure sticky TD cells inherit the row's background color to hide content scrolling underneath */
+td:nth-child(1), td:nth-child(2), td:nth-child(3) {
+    background-color: inherit;
+}
+
+/* Make sticky header cells appear above sticky column cells */
+th:nth-child(1), th:nth-child(2), th:nth-child(3) {
+    z-index: 4;
+}
+/* ---- STICKY COLUMN STYLES END ---- */
+
+.positive {
+    color: var(--color-positive);
+}
+
+.negative {
+    color: var(--color-negative);
+}
+
+.neutral {
+    color: var(--color-neutral);
+}
+
+.hidden {
+    display: none !important;
+}
+
+#error-output, #modal-error, #analysis-modal-error, #ai-analysis-error {
+    color: var(--color-positive);
+    font-weight: 500;
+    text-align: center;
+    padding: 16px;
+    background-color: #fff0f0;
+    border: 1px solid var(--color-positive);
+    border-radius: 4px;
+    margin-top: 16px;
+}
+
+#loader, .loader {
+    width: 48px;
+    height: 48px;
+    border: 5px solid var(--border-color);
+    border-bottom-color: var(--primary-color);
+    border-radius: 50%;
+    display: block;
+    box-sizing: border-box;
+    animation: rotation 1s linear infinite;
+    margin: 16px auto 0;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: var(--card-background-color);
+    padding: 24px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+#analysis-modal .modal-content {
+    max-width: 950px;
+}
+
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 16px;
+    margin-bottom: 16px;
+    gap: 16px;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    border-bottom: none;
+    padding-bottom: 0;
+    flex-grow: 1;
+}
+
+.modal-close-button {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0;
+    color: var(--color-neutral);
+}
+
+.modal-close-button:hover {
+    color: var(--text-color);
+}
+
+#modal-body h3, #analysis-modal-body h3, #cache-manager h3 {
+    font-size: 1.2rem;
+    margin-top: 24px;
+    margin-bottom: 12px;
+}
+
+#cache-manager h3 {
+    margin-top: 0;
+    margin-bottom: 8px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+
+#modal-body ul {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+#modal-body li {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+#modal-body li a {
+    display: block;
+    text-decoration: none;
+    color: var(--primary-color);
+    padding: 8px 14px;
+    border-radius: 20px;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease, border-color 0.2s ease;
+    border: 1px solid var(--border-color);
+    background-color: #f8f9fa;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+#modal-body li a:hover {
+   background-color: #e9ecef;
+   color: var(--primary-hover-color);
+   border-color: #ced4da;
+}
+
+#modal-etf-link-container {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+    word-break: break-all;
+}
+
+#modal-etf-link-container strong {
+    font-weight: 500;
+}
+
+#modal-etf-link {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+#modal-etf-link:hover {
+    text-decoration: underline;
+}
+
+#modal-loader {
+    margin: 48px auto;
+}
+
+.charts-wrapper {
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.charts-wrapper h4 {
+    margin: 0 0 8px 0;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-neutral);
+    text-align: left;
+}
+
+.chart-container {
+    position: relative;
+    width: 100%;
+}
+
+#price-volume-chart-container {
+    height: 360px;
+    min-height: 100px;
+}
+
+#stochastic-chart-container, #rsi-chart-container, #macd-chart-container, #momentum-chart-container {
+    height: 240px;
+    margin-top: 16px;
+    min-height: 100px;
+}
+
+.chart-container .loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0;
+}
+
+.chart-error {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    background-color: #f8f9fa;
+    color: var(--color-neutral);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    padding: 20px;
+    box-sizing: border-box;
+    text-align: center;
+}
+
+#modal-holdings-container {
+    margin-top: 16px;
+    max-height: 250px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+}
+
+#modal-holdings-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+#modal-holdings-table th,
+#modal-holdings-table td {
+    padding: 8px 12px;
+    border-bottom: 1px solid #e9ecef;
+    text-align: left;
+}
+
+#modal-holdings-table th {
+    font-weight: 500;
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+}
+
+#modal-holdings-table tr:last-child td {
+    border-bottom: none;
+}
+
+#modal-holdings-table td:last-child {
+    text-align: right;
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.date-info {
+    font-size: 0.85rem;
+    font-weight: 400;
+    color: var(--color-neutral);
+    margin-left: 8px;
+}
+
+.analysis-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 24px;
+    font-size: 0.9rem;
+    white-space: normal;
+    text-align: left;
+}
+
+.analysis-table th, .analysis-table td {
+    padding: 12px 15px;
+    border: 1px solid var(--border-color);
+    vertical-align: top;
+    line-height: 1.5;
+}
+
+.analysis-table th {
+    background-color: #f8f9fa;
+    font-weight: 500;
+    text-align: center;
+}
+
+.analysis-table td:nth-child(1) { /* Sector */
+    width: 15%;
+    font-weight: 700;
+}
+
+.analysis-table td:nth-child(2) { /* ETFs */
+    width: 35%;
+}
+
+.analysis-table td:nth-child(3) { /* Trend */
+    width: 50%;
+}
+
+#analysis-summary-list {
+    list-style-type: '• ';
+    padding-left: 20px;
+    margin: 0;
+}
+
+#analysis-summary-list li {
+    margin-bottom: 8px;
+    padding-left: 8px;
+}
+
+.export-button {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+    white-space: nowrap;
+}
+
+.export-button:hover {
+    background-color: #218838;
+}
+
+.export-data-container {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.action-button {
+    font-family: var(--font-family);
+    background-color: #17a2b8;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 18px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.action-button:hover:not(:disabled) {
+    background-color: #138496;
+}
+
+.action-button:disabled {
+    background-color: #6c757d;
+    cursor: not-allowed;
+}
+
+#download-status {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-neutral);
+}
+
+
+#export-modal .modal-content {
+    max-width: 700px;
+}
+
+#export-modal-body p {
+    margin-top: 0;
+    margin-bottom: 12px;
+    font-size: 0.9rem;
+}
+
+#export-modal-body textarea {
+    width: 100%;
+    height: 350px;
+    font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+    font-size: 0.85rem;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    resize: vertical;
+    box-sizing: border-box;
+    background-color: #f8f9fa;
+    line-height: 1.5;
+}
+
+#copy-export-button {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    margin-top: 12px;
+    font-family: var(--font-family);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out;
+}
+
+#copy-export-button:hover {
+    background-color: var(--primary-hover-color);
+}
+
+/* AI Analysis Section Styles */
+#ai-analysis-container {
+    margin-top: 16px;
+    padding: 16px;
+    background-color: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+}
+
+#ai-analysis-prompt {
+    text-align: center;
+}
+
+#ai-analysis-prompt p {
+    margin: 0 0 16px 0;
+    font-size: 0.9rem;
+    color: var(--color-neutral);
+}
+
+#ai-analysis-results h4 {
+    font-size: 1.1rem;
+    margin-top: 20px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid #e9ecef;
+}
+#ai-analysis-results h4:first-child {
+    margin-top: 0;
+}
+
+@keyframes rotation {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 16px;
+    }
+    h1 {
+        font-size: 2rem;
+    }
+
+    /* Adjust sticky column widths for mobile portrait view */
+    th:nth-child(1), td:nth-child(1) { width: 30px; min-width: 30px; padding-left: 5px; padding-right: 5px; } /* 현재 순위 */
+    th:nth-child(2), td:nth-child(2) { width: 45px; min-width: 45px; padding-left: 5px; padding-right: 5px; } /* 순위 변동 */
+    th:nth-child(3), td:nth-child(3) { 
+        width: 120px; 
+        min-width: 120px;
+        max-width: 120px;
+        transition: width 0.2s ease-in-out, min-width 0.2s ease-in-out, max-width 0.2s ease-in-out;
+    } /* 종목명 */
+
+    table.scrolled-horizontally th:nth-child(3),
+    table.scrolled-horizontally td:nth-child(3) {
+        width: 60px;
+        min-width: 60px;
+        max-width: 60px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* Update sticky positions for mobile */
+    th:nth-child(2), td:nth-child(2) { left: 30px; }
+    th:nth-child(3), td:nth-child(3) { left: 75px; /* 30 + 45 */ }
+}
+
+/* Sector styles */
+#sector-summary {
+    font-size: 1rem;
+    font-weight: 400;
+    color: var(--color-neutral);
+    margin-left: 8px;
+}
+
+.sector-summary-item {
+    font-weight: 500;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+#sector-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    justify-content: center;
+    margin-bottom: 16px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+    padding: 4px 10px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.legend-item:hover {
+    background-color: #e9ecef;
+    border-color: #ced4da;
+}
+
+.legend-item.active, .sector-summary-item.active {
+    background-color: var(--primary-color);
+    color: white !important; /* important to override inline style color */
+    border-color: var(--primary-color);
+    font-weight: 700;
+}
+
+.legend-item.active .sector-indicator {
+    background-color: white !important;
+}
+
+.sector-indicator {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border-radius: 4px;
+    vertical-align: middle;
+}
+
+/* Cache Manager Styles */
+#cache-manager p {
+    font-size: 0.9rem;
+    color: var(--color-neutral);
+    margin: 0 0 12px 0;
+    line-height: 1.5;
+}
+
+.cache-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+    align-items: start;
+}
+
+.cache-upload, .cache-download {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.file-input-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+#upload-cache-input {
+    display: none;
+}
+
+.file-input-wrapper label.action-button {
+    flex-shrink: 0;
+}
+
+#cache-status {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-neutral);
+    word-break: keep-all;
+}
+
+.cache-download-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+}
+
+.action-button.secondary {
+    background-color: #6f42c1;
+}
+
+.action-button.secondary:hover:not(:disabled) {
+    background-color: #5a32a3;
+}
+
+.status-message {
+    margin-top: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--color-neutral);
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    min-height: 20px;
+    border: 1px solid var(--border-color);
+    line-height: 1.4;
+}
+
+/* Indicator Filter Styles */
+.indicator-filters-container {
+    padding: 16px 24px;
+    margin-top: 0;
+}
+
+.indicator-filters-container summary {
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.indicator-filters-container summary h2 {
+    display: inline;
+    font-size: 1.2rem;
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.indicator-filters-container p {
+    font-size: 0.9rem;
+    color: var(--color-neutral);
+    margin: 12px 0;
+    background-color: #f8f9fa;
+    padding: 8px 12px;
+    border-radius: 4px;
+}
+
+
+#indicator-filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 16px 24px;
+    margin-top: 16px;
+}
+
+.filter-column h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin: 0 0 12px 0;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.filter-column {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.filter-group .filter-enable-checkbox {
+    transform: scale(1.2);
+    margin-right: 4px;
+    cursor: pointer;
+}
+
+.filter-group label {
+    font-weight: 500;
+    width: 140px;
+    flex-shrink: 0;
+}
+
+.filter-group select, .filter-group input[type="number"] {
+    font-family: var(--font-family);
+    padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    height: 40px;
+    box-sizing: border-box;
+}
+
+.filter-group input[type="number"] {
+    width: 80px;
+}
+
+.filter-group select {
+    width: 110px;
+}
+
+.filter-group input:disabled, .filter-group select:disabled {
+    background-color: #e9ecef;
+    cursor: not-allowed;
+    opacity: 0.7;
+}
+
+
+@media (max-width: 800px) {
+    .cache-grid {
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+}
+</style>
+<script type="importmap">{"imports":{"chart.js":"https://esm.sh/chart.js@^4.4.3"}}</script>
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ETF 모멘텀 계산기</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <main id="app-container">
+        <header>
+            <h1>ETF 모멘텀 계산기</h1>
+            <p>공공데이터포털 API를 사용하여 기간별 ETF 수익률과 모멘텀 점수를 계산합니다.</p>
+        </header>
+        
+        <div class="controls-container">
+            <div class="api-key-container">
+                <label for="api-key-input">공공데이터포털 서비스 키</label>
+                <input type="password" id="api-key-input" placeholder="서비스 키를 여기에 입력하세요" aria-required="true">
+            </div>
+            <div class="date-container">
+                <label for="base-date-input">기준일</label>
+                <input type="date" id="base-date-input">
+            </div>
+        </div>
+        
+        <div class="momentum-controls">
+            <div class="weight-input-group">
+                <label for="weight-1w">1주 가중치</label>
+                <input type="number" id="weight-1w" value="48">
+            </div>
+            <div class="weight-input-group">
+                <label for="weight-2w">2주 가중치</label>
+                <input type="number" id="weight-2w" value="24">
+            </div>
+             <div class="weight-input-group">
+                <label for="weight-1m">1개월 가중치</label>
+                <input type="number" id="weight-1m" value="12">
+            </div>
+            <div class="weight-input-group">
+                <label for="weight-3m">3개월 가중치</label>
+                <input type="number" id="weight-3m" value="4">
+            </div>
+             <div class="weight-input-group">
+                <label for="weight-6m">6개월 가중치</label>
+                <input type="number" id="weight-6m" value="2">
+            </div>
+            <div class="filter-input-group">
+                <label for="min-volume">최소 거래량 (만주)</label>
+                <input type="number" id="min-volume" placeholder="예: 10" value="10">
+            </div>
+            <div class="filter-input-group">
+                <label for="min-trade-value">최소 거래대금 (억원)</label>
+                <input type="number" id="min-trade-value" placeholder="예: 10" value="10">
+            </div>
+             <div class="display-count-group">
+                <label for="display-count">표시 순위</label>
+                <input type="number" id="display-count" value="20">
+            </div>
+             <div class="rank-change-period-group">
+                <label for="rank-change-period">순위 비교 기간(일)</label>
+                <input type="number" id="rank-change-period" value="7">
+            </div>
+            <button id="fetch-button" aria-label="ETF 모멘텀 계산">모멘텀 계산하기</button>
+            <button id="show-new-etfs-button" class="hidden" aria-label="신규 ETF 보기">신규 ETF 보기</button>
+        </div>
+        
+        <section class="indicator-filters-container card">
+            <details>
+                <summary><h2>보조 지표 필터링 (선택 사항)</h2></summary>
+                <p>여기서 설정된 조건에 맞는 ETF에 대해서만 모멘텀 순위를 계산합니다. 필터링은 캐시 데이터에 보조 지표가 포함된 경우에만 작동합니다.</p>
+                <div id="indicator-filters">
+                    <div class="filter-column">
+                        <h3>Stochastic</h3>
+                        <div class="filter-group">
+                            <input type="checkbox" id="stoch-d-filter-enable" class="filter-enable-checkbox">
+                            <label for="stoch-d-filter-enable">Stoch(일)</label>
+                            <select id="stoch-d-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="stoch-d-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="stoch-d-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="stoch-w-filter-enable" class="filter-enable-checkbox">
+                            <label for="stoch-w-filter-enable">Stoch(주)</label>
+                            <select id="stoch-w-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="stoch-w-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="stoch-w-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="stoch-diff-filter-enable" class="filter-enable-checkbox">
+                            <label for="stoch-diff-filter-enable">Stoch(일)-Stoch(주)</label>
+                            <select id="stoch-diff-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="stoch-diff-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="stoch-diff-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                    </div>
+                    <div class="filter-column">
+                        <h3>RSI</h3>
+                        <div class="filter-group">
+                            <input type="checkbox" id="rsi-d-filter-enable" class="filter-enable-checkbox">
+                            <label for="rsi-d-filter-enable">RSI(일)</label>
+                            <select id="rsi-d-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="rsi-d-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="rsi-d-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="rsi-w-filter-enable" class="filter-enable-checkbox">
+                            <label for="rsi-w-filter-enable">RSI(주)</label>
+                            <select id="rsi-w-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="rsi-w-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="rsi-w-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="rsi-diff-filter-enable" class="filter-enable-checkbox">
+                            <label for="rsi-diff-filter-enable">RSI(일)-RSI(주)</label>
+                            <select id="rsi-diff-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="rsi-diff-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="rsi-diff-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                    </div>
+                    <div class="filter-column">
+                        <h3>MACD</h3>
+                        <div class="filter-group">
+                            <input type="checkbox" id="macd-d-filter-enable" class="filter-enable-checkbox">
+                            <label for="macd-d-filter-enable">MACD(일)</label>
+                            <select id="macd-d-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="macd-d-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="macd-d-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="macd-hist-d-filter-enable" class="filter-enable-checkbox">
+                            <label for="macd-hist-d-filter-enable">MACD Hist(일)</label>
+                            <select id="macd-hist-d-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="macd-hist-d-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="macd-hist-d-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="macd-w-filter-enable" class="filter-enable-checkbox">
+                            <label for="macd-w-filter-enable">MACD(주)</label>
+                            <select id="macd-w-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="macd-w-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="macd-w-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                        <div class="filter-group">
+                            <input type="checkbox" id="macd-hist-w-filter-enable" class="filter-enable-checkbox">
+                            <label for="macd-hist-w-filter-enable">MACD Hist(주)</label>
+                            <select id="macd-hist-w-filter-type" class="filter-type-select" disabled>
+                                <option value="gte">이상 (>=)</option>
+                                <option value="lte">이하 (<=)</option>
+                                <option value="between">범위</option>
+                            </select>
+                            <input type="number" id="macd-hist-w-filter-value1" class="filter-value-input" placeholder="값1" disabled>
+                            <input type="number" id="macd-hist-w-filter-value2" class="filter-value-input hidden" placeholder="값2" disabled>
+                        </div>
+                    </div>
+                </div>
+            </details>
+        </section>
+        
+        <div id="analysis-controls" class="analysis-controls">
+             <button id="analysis-button" class="hidden" aria-label="결과 분석 보기">결과 분석하기</button>
+        </div>
+
+        <section class="card" id="cache-manager">
+            <h2>데이터 캐시 관리</h2>
+            <div class="cache-grid">
+                <div class="cache-upload">
+                    <h3>캐시 불러오기</h3>
+                    <p>이전에 다운로드한 JSON 데이터 파일을 불러와 API 호출을 줄일 수 있습니다. 파일은 브라우저에만 저장되며, 새로고침 시 사라집니다.</p>
+                    <div class="file-input-wrapper">
+                        <label for="upload-cache-input" class="action-button">파일 선택</label>
+                        <input type="file" id="upload-cache-input" accept=".json">
+                        <span id="cache-status">선택된 파일 없음</span>
+                    </div>
+                </div>
+                <div class="cache-download">
+                    <h3>캐시 업데이트 / 생성</h3>
+                    <p><strong>업데이트:</strong> 불러온 캐시가 있다면, 오늘까지의 최신 데이터를 API로 가져와 캐시를 보강합니다.<br><strong>신규 생성:</strong> 캐시가 없다면, 모든 ETF의 1년치 데이터를 API로 다운로드하여 새 캐시 파일을 생성합니다. (몇 분 이상 소요)</p>
+                    <div class="cache-download-buttons">
+                        <button id="download-cache-button" class="action-button">1년 전체 데이터 신규 생성 (API)</button>
+                        <button id="update-cache-button" class="action-button secondary hidden">오늘까지 캐시 업데이트 (API)</button>
+                    </div>
+                    <div id="download-status-message" class="status-message"></div>
+                </div>
+            </div>
+        </section>
+
+
+        <section class="card" id="response-container">
+            <h2>계산 결과 <span id="sector-summary"></span></h2>
+            <div id="loader" class="hidden"></div>
+            <div id="error-output" class="hidden" aria-live="assertive"></div>
+            <div id="sector-legend" class="hidden"></div>
+            <div id="table-container" class="hidden">
+                <table>
+                    <thead>
+                        <tr>
+                            <th id="rank-header" role="button" title="클릭하여 순위 정렬">현재 순위</th>
+                            <th id="rank-change-header" role="button" title="클릭하여 변동폭 정렬">순위 변동</th>
+                            <th>종목명</th>
+                            <th>종가</th>
+                            <th>전일대비</th>
+                            <th>등락률 (%)</th>
+                            <th>NAV</th>
+                            <th>거래량 (만주)</th>
+                            <th>거래대금 (억원)</th>
+                            <th>시가총액 (억원)</th>
+                            <th>기준일</th>
+                            <th>모멘텀 점수</th>
+                            <th>1주 수익률</th>
+                            <th>2주 수익률</th>
+                            <th>1개월 수익률</th>
+                            <th>3개월 수익률</th>
+                            <th>6개월 수익률</th>
+                            <th>12개월 수익률</th>
+                            <th>Stoch(일)</th>
+                            <th>Stoch(주)</th>
+                            <th>Stoch(일)-Stoch(주)</th>
+                            <th>RSI(일)</th>
+                            <th>RSI(주)</th>
+                            <th>RSI(일)-RSI(주)</th>
+                            <th>MACD(일)</th>
+                            <th>MACD Hist(일)</th>
+                            <th>MACD(주)</th>
+                            <th>MACD Hist(주)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="etf-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="card hidden" id="new-etfs-container">
+            <h2>6개월 이내 신규 상장 ETF</h2>
+            <p>상장 후 6개월 미만으로 데이터가 부족하여 모멘텀 점수를 계산할 수 없는 종목입니다.</p>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No.</th>
+                            <th id="new-rank-change-header">순위 변동</th>
+                            <th>종목명</th>
+                            <th>종가</th>
+                            <th>전일대비</th>
+                            <th>등락률 (%)</th>
+                            <th>NAV</th>
+                            <th>거래량 (만주)</th>
+                            <th>거래대금 (억원)</th>
+                            <th>시가총액 (억원)</th>
+                            <th>기준일</th>
+                            <th>모멘텀 점수</th>
+                            <th>1주 수익률</th>
+                            <th>2주 수익률</th>
+                            <th>1개월 수익률</th>
+                            <th>3개월 수익률</th>
+                            <th>6개월 수익률</th>
+                            <th>12개월 수익률</th>
+                            <th>Stoch(일)</th>
+                            <th>Stoch(주)</th>
+                            <th>Stoch(일)-Stoch(주)</th>
+                            <th>RSI(일)</th>
+                            <th>RSI(주)</th>
+                            <th>RSI(일)-RSI(주)</th>
+                            <th>MACD(일)</th>
+                            <th>MACD Hist(일)</th>
+                            <th>MACD(주)</th>
+                            <th>MACD Hist(주)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="new-etfs-table-body">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div id="details-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h2 id="modal-title"></h2>
+                    <button id="modal-close-button" class="modal-close-button" aria-label="닫기">&times;</button>
+                </header>
+                <div id="modal-body">
+                    <div id="modal-loader" class="loader hidden"></div>
+                    <div id="modal-error" class="hidden"></div>
+                    <div id="modal-data" class="hidden">
+                        
+                        <h3>상세 차트</h3>
+                        <div class="charts-wrapper">
+                            <div id="price-volume-chart-container" class="chart-container">
+                                <h4>가격 &amp; 거래량</h4>
+                                <canvas id="price-volume-chart"></canvas>
+                            </div>
+                            <div id="momentum-chart-container" class="chart-container">
+                                <h4>일일 모멘텀 점수</h4>
+                                <canvas id="momentum-chart"></canvas>
+                            </div>
+                            <div id="stochastic-chart-container" class="chart-container">
+                                <h4>스토캐스틱 (일/주)</h4>
+                                <canvas id="stochastic-chart"></canvas>
+                            </div>
+                            <div id="rsi-chart-container" class="chart-container">
+                                <h4>RSI (일/주)</h4>
+                                <canvas id="rsi-chart"></canvas>
+                            </div>
+                            <div id="macd-chart-container" class="chart-container">
+                                <h4>MACD (일/주)</h4>
+                                <canvas id="macd-chart"></canvas>
+                            </div>
+                        </div>
+                        
+                        <h3>데이터 내보내기</h3>
+                        <div class="export-data-container">
+                             <button id="download-csv-button" class="action-button">1년 데이터 다운로드 (CSV)</button>
+                             <span id="download-status"></span>
+                        </div>
+
+                        <h3>AI 분석 정보</h3>
+                        <div id="ai-analysis-container">
+                            <div id="ai-analysis-prompt">
+                                <p>ETF의 최신 상품 설명, 주요 편입 종목, 관련 키워드 등의 분석 정보를 AI를 통해 실시간으로 조회합니다.</p>
+                                <button id="fetch-ai-analysis-button" class="action-button">최신 정보 분석하기</button>
+                            </div>
+                            <div id="ai-analysis-loader" class="loader hidden"></div>
+                            <div id="ai-analysis-error" class="hidden"></div>
+                            <div id="ai-analysis-results" class="hidden">
+                                <h4>종목 설명</h4>
+                                <p id="modal-description"></p>
+                                <p id="modal-etf-link-container" class="hidden">
+                                    <strong>정보 출처: </strong><a id="modal-etf-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+                                </p>
+        
+                                <h4>주요 편입 종목 (Top 10) <span id="modal-holdings-date" class="date-info"></span></h4>
+                                <div id="modal-holdings-container">
+                                    <table id="modal-holdings-table">
+                                        <thead>
+                                            <tr>
+                                                <th>종목명</th>
+                                                <th>비중</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="modal-holdings-list"></tbody>
+                                    </table>
+                                </div>
+        
+                                <h4>관련 뉴스 검색하기</h4>
+                                <ul id="modal-news-list"></ul>
+                                <h4>관련 동영상 검색하기</h4>
+                                <ul id="modal-videos-list"></ul>
+                                <h4>검색 정보 출처 (Google)</h4>
+                                <ul id="modal-sources-list"></ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="analysis-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="analysis-modal-title">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h2 id="analysis-modal-title">ETF 모멘텀 순위 분석</h2>
+                    <button id="export-to-notebook-lm-button" class="export-button" aria-label="노트북LM용 콘텐츠 내보내기">콘텐츠 내보내기</button>
+                    <button id="analysis-modal-close-button" class="modal-close-button" aria-label="닫기">&times;</button>
+                </header>
+                <div id="analysis-modal-body">
+                    <div id="analysis-modal-loader" class="loader"></div>
+                    <div id="analysis-modal-error" class="hidden"></div>
+                    <div id="analysis-modal-data" class="hidden">
+                        <h3>▲ 상승 모멘텀 주도 섹터</h3>
+                        <table class="analysis-table">
+                            <thead>
+                                <tr>
+                                    <th>섹터</th>
+                                    <th>주요 종목 (순위)</th>
+                                    <th>특징 및 수익률 트렌드</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analysis-table-body-positive"></tbody>
+                        </table>
+                        
+                        <h3>▼ 하락 모멘텀 주도 섹터</h3>
+                        <table class="analysis-table">
+                            <thead>
+                                <tr>
+                                    <th>섹터</th>
+                                    <th>주요 종목 (순위)</th>
+                                    <th>특징 및 수익률 트렌드</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analysis-table-body-negative"></tbody>
+                        </table>
+
+                        <h3>총평</h3>
+                        <ul id="analysis-summary-list"></ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="export-modal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+            <div class="modal-content">
+                <header class="modal-header">
+                    <h2 id="export-modal-title">NotebookLM용 콘텐츠</h2>
+                    <button id="export-modal-close-button" class="modal-close-button" aria-label="닫기">&times;</button>
+                </header>
+                <div id="export-modal-body">
+                    <p>아래 텍스트를 복사하여 NotebookLM의 새 소스에 붙여넣으세요.</p>
+                    <textarea id="export-content" readonly></textarea>
+                    <button id="copy-export-button">텍스트 복사</button>
+                </div>
+            </div>
+        </div>
+    </main>
+        <script type="module" src="./app.js"></script>
+</body>
+</html>
+
