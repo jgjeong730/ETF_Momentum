@@ -216,6 +216,8 @@ let etfDataCache = new Map();
 let etfHistoryCache = new Map(); // For fast, per-ETF history lookups
 let currentSortOrder = 'desc';
 let currentSortColumn = 'rank';
+const WATCHLIST_STORAGE_KEY = 'etf_watchlist_v1';
+let watchlist = []; // [{ isinCd, itmsNm, snapshot }]
 // --- End App State ---
 const getSectorsForEtfs = (etfs) => {
     const finalSectorMap = new Map();
@@ -302,9 +304,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sector elements
     const sectorSummary = document.getElementById('sector-summary');
     const sectorLegend = document.getElementById('sector-legend');
+    // Stock Search elements
+    const stockSearchInput = document.getElementById('stock-search-input');
+    const stockSearchHint = document.getElementById('stock-search-hint');
+    const stockSearchEmpty = document.getElementById('stock-search-empty');
+    const stockSearchTableContainer = document.getElementById('stock-search-table-container');
+    const stockSearchTableBody = document.getElementById('stock-search-table-body');
+    // Watchlist elements
+    const watchlistCount = document.getElementById('watchlist-count');
+    const watchlistEmpty = document.getElementById('watchlist-empty');
+    const watchlistTableContainer = document.getElementById('watchlist-table-container');
+    const watchlistTableBody = document.getElementById('watchlist-table-body');
     // Fix: Using any for charts to avoid complex Chart.js type compatibility issues in this environment
     let charts = {};
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -1290,6 +1303,136 @@ document.addEventListener('DOMContentLoaded', () => {
             newEtfsTableBody.appendChild(renderRow(item, index));
         });
     };
+    // --- Watchlist Logic ---
+    const createWatchlistActionCell = (isinCd, isInList) => {
+        const td = document.createElement('td');
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = isInList ? 'action-button secondary watchlist-toggle-button' : 'action-button watchlist-toggle-button';
+        button.dataset.isinCd = isinCd;
+        button.dataset.action = isInList ? 'remove' : 'add';
+        button.textContent = isInList ? '− 제거' : '★ 추가';
+        td.appendChild(button);
+        return td;
+    };
+    const saveWatchlist = () => {
+        try {
+            localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
+        }
+        catch (error) {
+            console.error('Failed to save watchlist:', error);
+        }
+    };
+    const loadWatchlist = () => {
+        try {
+            const raw = localStorage.getItem(WATCHLIST_STORAGE_KEY);
+            if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) {
+                    watchlist = parsed;
+                }
+            }
+        }
+        catch (error) {
+            console.error('Failed to load watchlist:', error);
+            watchlist = [];
+        }
+    };
+    const isInWatchlist = (isinCd) => watchlist.some(entry => entry.isinCd === isinCd);
+    const addToWatchlist = (item) => {
+        if (isInWatchlist(item.isinCd))
+            return;
+        watchlist.push({ isinCd: item.isinCd, itmsNm: item.itmsNm, snapshot: item });
+        saveWatchlist();
+        renderWatchlist();
+        renderStockSearchResults();
+    };
+    const removeFromWatchlist = (isinCd) => {
+        watchlist = watchlist.filter(entry => entry.isinCd !== isinCd);
+        saveWatchlist();
+        renderWatchlist();
+        renderStockSearchResults();
+    };
+    const updateWatchlistSnapshots = () => {
+        if (watchlist.length === 0)
+            return;
+        const latestByIsin = new Map([...allRankedEtfs, ...newlyListedEtfs].map(item => [item.isinCd, item]));
+        let changed = false;
+        watchlist.forEach(entry => {
+            const latest = latestByIsin.get(entry.isinCd);
+            if (latest) {
+                entry.snapshot = latest;
+                entry.itmsNm = latest.itmsNm;
+                changed = true;
+            }
+        });
+        if (changed) {
+            saveWatchlist();
+        }
+    };
+    const renderWatchlist = () => {
+        watchlistTableBody.innerHTML = '';
+        if (watchlist.length === 0) {
+            watchlistCount.textContent = '';
+            watchlistEmpty.classList.remove('hidden');
+            watchlistTableContainer.classList.add('hidden');
+            return;
+        }
+        watchlistCount.textContent = `(${watchlist.length})`;
+        watchlistEmpty.classList.add('hidden');
+        watchlistTableContainer.classList.remove('hidden');
+        watchlist.forEach(entry => {
+            let row;
+            if (entry.snapshot) {
+                row = renderRow(entry.snapshot);
+            }
+            else {
+                row = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 18;
+                td.style.textAlign = 'center';
+                td.textContent = `${entry.itmsNm} — '모멘텀 계산하기'를 실행하면 데이터가 표시됩니다.`;
+                row.appendChild(td);
+            }
+            row.appendChild(createWatchlistActionCell(entry.isinCd, true));
+            watchlistTableBody.appendChild(row);
+        });
+    };
+    // --- Stock Search Logic ---
+    const renderStockSearchResults = () => {
+        const query = stockSearchInput.value.trim();
+        const universe = [...allRankedEtfs, ...newlyListedEtfs];
+        if (universe.length === 0) {
+            stockSearchHint.classList.remove('hidden');
+            stockSearchEmpty.classList.add('hidden');
+            stockSearchTableContainer.classList.add('hidden');
+            return;
+        }
+        stockSearchHint.classList.add('hidden');
+        if (!query) {
+            stockSearchEmpty.classList.add('hidden');
+            stockSearchTableContainer.classList.add('hidden');
+            stockSearchTableBody.innerHTML = '';
+            return;
+        }
+        const lowerQuery = query.toLowerCase();
+        const matches = universe
+            .filter(item => item.itmsNm && item.itmsNm.toLowerCase().includes(lowerQuery))
+            .slice(0, 30);
+        stockSearchTableBody.innerHTML = '';
+        if (matches.length === 0) {
+            stockSearchEmpty.classList.remove('hidden');
+            stockSearchTableContainer.classList.add('hidden');
+            return;
+        }
+        stockSearchEmpty.classList.add('hidden');
+        stockSearchTableContainer.classList.remove('hidden');
+        matches.forEach(item => {
+            const row = renderRow(item);
+            row.appendChild(createWatchlistActionCell(item.isinCd, isInWatchlist(item.isinCd)));
+            stockSearchTableBody.appendChild(row);
+        });
+    };
     const calculateAndStoreResults = async () => {
         const apiKey = apiKeyInput.value.trim();
         if (!apiKey) {
@@ -1367,6 +1510,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentSortOrder = 'desc'; // Reset sort order on new calculation
             currentSortColumn = 'rank';
             renderResults();
+            updateWatchlistSnapshots();
+            renderWatchlist();
+            renderStockSearchResults();
             if (newlyListedEtfs.length > 0) {
                 showNewEtfsButton.classList.remove('hidden');
                 showNewEtfsButton.textContent = `신규 ETF 보기 (${newlyListedEtfs.length})`;
@@ -1462,6 +1608,42 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     });
+    const handleResultTableClick = (event) => {
+        const target = event.target;
+        const nameCell = target.closest('.item-name-clickable');
+        if (nameCell && nameCell.dataset.itemName && nameCell.dataset.isinCd) {
+            openModal(nameCell.dataset.itemName, nameCell.dataset.isinCd);
+            return;
+        }
+        const toggleButton = target.closest('.watchlist-toggle-button');
+        if (toggleButton && toggleButton.dataset.isinCd) {
+            if (toggleButton.dataset.action === 'remove') {
+                removeFromWatchlist(toggleButton.dataset.isinCd);
+            }
+            else {
+                const item = [...allRankedEtfs, ...newlyListedEtfs].find(i => i.isinCd === toggleButton.dataset.isinCd);
+                if (item) {
+                    addToWatchlist(item);
+                }
+            }
+        }
+    };
+    stockSearchTableBody.addEventListener('click', handleResultTableClick);
+    watchlistTableBody.addEventListener('click', handleResultTableClick);
+    const handleResultTableKeydown = (event) => {
+        const target = event.target;
+        if ((event.key === 'Enter' || event.key === ' ') && target.matches('.item-name-clickable')) {
+            event.preventDefault();
+            if (target.dataset.itemName && target.dataset.isinCd) {
+                openModal(target.dataset.itemName, target.dataset.isinCd);
+            }
+        }
+    };
+    stockSearchTableBody.addEventListener('keydown', handleResultTableKeydown);
+    watchlistTableBody.addEventListener('keydown', handleResultTableKeydown);
+    stockSearchInput.addEventListener('input', renderStockSearchResults);
+    loadWatchlist();
+    renderWatchlist();
     modalCloseButton.addEventListener('click', closeModal);
     modal.addEventListener('click', (event) => {
         if (event.target === modal) {
