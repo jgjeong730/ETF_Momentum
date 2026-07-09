@@ -1218,25 +1218,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (item.momentumScore !== null && isFinite(item.momentumScore)) {
             momentumScoreCell = `<td class="${getChangeClass(item.momentumScore)}">${item.momentumScore.toFixed(2)}</td>`;
         }
-        let indicatorCells = '';
-        const { stochastic_k, stochastic_k_weekly, stochastic_diff, rsi, rsi_weekly, rsi_diff, macd, macd_hist, macd_weekly, macd_hist_weekly } = item;
-        const renderIndicatorCell = (value, isSigned = false) => {
-            if (value !== null && value !== undefined && isFinite(value)) {
-                const sign = isSigned && value > 0 ? '+' : '';
-                return `<td class="${getChangeClass(value)}">${sign}${value.toFixed(2)}</td>`;
-            }
-            return `<td>N/A</td>`;
-        };
-        indicatorCells += renderIndicatorCell(stochastic_k);
-        indicatorCells += renderIndicatorCell(stochastic_k_weekly);
-        indicatorCells += renderIndicatorCell(stochastic_diff, true);
-        indicatorCells += renderIndicatorCell(rsi);
-        indicatorCells += renderIndicatorCell(rsi_weekly);
-        indicatorCells += renderIndicatorCell(rsi_diff, true);
-        indicatorCells += renderIndicatorCell(macd, true);
-        indicatorCells += renderIndicatorCell(macd_hist, true);
-        indicatorCells += renderIndicatorCell(macd_weekly, true);
-        indicatorCells += renderIndicatorCell(macd_hist_weekly, true);
         row.innerHTML = `
             <td>${currentRank}</td>
             ${rankChangeHtml}
@@ -1244,14 +1225,13 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${formatNumber(item.clpr)}</td>
             <td class="${getChangeClass(change)}">${change > 0 ? '▲' : ''}${change < 0 ? '▼' : ''} ${formatNumber(change)}</td>
             <td class="${getChangeClass(rate)}">${rate.toFixed(2)}%</td>
+            ${momentumScoreCell}
+            ${momentumCells}
             <td>${formatNumber(item.nav)}</td>
             <td>${formatLargeNumber(item.trqu, 10000)}</td>
             <td>${formatLargeNumber(item.trPrc, 100000000)}</td>
             <td>${formatLargeNumber(item.mrktTotAmt, 100000000)}</td>
             <td>${item.basDt}</td>
-            ${momentumScoreCell}
-            ${momentumCells}
-            ${indicatorCells}
         `;
         return row;
     };
