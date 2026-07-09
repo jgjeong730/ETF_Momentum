@@ -185,6 +185,35 @@ td.watchlist-manage-cell {
     background-color: #dee2e6;
 }
 
+.chart-period-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.chart-period-button {
+    font-family: var(--font-family);
+    background-color: var(--card-background-color);
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 6px 16px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+}
+
+.chart-period-button:hover:not(.active) {
+    background-color: var(--background-color);
+}
+
+.chart-period-button.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
 .watchlist-move-button:disabled {
     opacity: 0.35;
     cursor: not-allowed;
@@ -1314,6 +1343,13 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
                     <div id="modal-data" class="hidden">
                         
                         <h3>상세 차트</h3>
+                        <div id="chart-period-selector" class="chart-period-selector">
+                            <button type="button" class="chart-period-button" data-period-days="5">1주</button>
+                            <button type="button" class="chart-period-button" data-period-days="21">1개월</button>
+                            <button type="button" class="chart-period-button" data-period-days="63">3개월</button>
+                            <button type="button" class="chart-period-button" data-period-days="126">6개월</button>
+                            <button type="button" class="chart-period-button active" data-period-days="250">1년</button>
+                        </div>
                         <div class="charts-wrapper">
                             <div id="price-volume-chart-container" class="chart-container">
                                 <h4>가격 &amp; 거래량</h4>

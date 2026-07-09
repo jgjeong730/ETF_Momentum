@@ -317,6 +317,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const watchlistTableBody = document.getElementById('watchlist-table-body');
     // Fix: Using any for charts to avoid complex Chart.js type compatibility issues in this environment
     let charts = {};
+    // Chart period selection state
+    const DEFAULT_CHART_PERIOD_DAYS = 250;
+    let currentChartPeriodDays = DEFAULT_CHART_PERIOD_DAYS;
+    let activeChartRedraw = null;
+    let activeChartHistory = null;
+    let activeChartSource = null;
     if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
         console.error('Required DOM elements not found.');
         return;
@@ -758,7 +764,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!apiKey)
             return;
         const STOCHASTIC_PERIOD = 14;
-        const DAYS_TO_DISPLAY = 250;
         const priceVolumeContainer = document.getElementById('price-volume-chart-container');
         const momentumContainer = document.getElementById('momentum-chart-container');
         const stochasticContainer = document.getElementById('stochastic-chart-container');
@@ -781,8 +786,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (macdContainer)
                 macdContainer.innerHTML = ``;
         };
-        const drawChartsFromHistory = (dailyResults, source) => {
-            console.log(`Drawing charts for ${isinCd} from ${source} data (${dailyResults.length} items)`);
+        const drawChartsFromHistory = (dailyResults, source, daysToDisplay) => {
+            console.log(`Drawing charts for ${isinCd} from ${source} data (${dailyResults.length} items), showing last ${daysToDisplay} trading days`);
             const uniqueDailyResults = Array.from(new Map(dailyResults.map(item => [item.basDt, item])).values())
                 .sort((a, b) => a.basDt.localeCompare(b.basDt));
             if (uniqueDailyResults.length < STOCHASTIC_PERIOD) {
@@ -831,7 +836,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const weeklyStochastic = calculateStochastic(weeklyData, STOCHASTIC_PERIOD);
             const weeklyRsiData = calculateRSI(weeklyData);
             const weeklyMacdData = calculateMACD(weeklyData.map((d) => d.close));
-            const displayDailyData = priceHistoryForCalc.slice(-DAYS_TO_DISPLAY);
+            const displayDailyData = priceHistoryForCalc.slice(-daysToDisplay);
             const labels = displayDailyData.map(d => `${d.date.substring(4, 6)}-${d.date.substring(6, 8)}`);
             const priceData = displayDailyData.map(d => d.close);
             const volumeData = displayDailyData.map(d => d.volume);
@@ -1129,7 +1134,10 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const cachedHistory = getHistoryFromCache(isinCd);
             if (cachedHistory && cachedHistory.length > STOCHASTIC_PERIOD) {
-                drawChartsFromHistory(cachedHistory, 'Cache');
+                drawChartsFromHistory(cachedHistory, 'Cache', currentChartPeriodDays);
+                activeChartRedraw = drawChartsFromHistory;
+                activeChartHistory = cachedHistory;
+                activeChartSource = 'Cache';
                 renderedFromCache = true;
             }
         }
@@ -1154,13 +1162,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.warn("API fetch for chart update returned no data. Sticking with cached version.");
                 return;
             }
-            drawChartsFromHistory(apiHistory, 'API');
+            drawChartsFromHistory(apiHistory, 'API', currentChartPeriodDays);
+            activeChartRedraw = drawChartsFromHistory;
+            activeChartHistory = apiHistory;
+            activeChartSource = 'API';
         }
         catch (apiError) {
             console.error("Failed to fetch or draw charts from API:", apiError);
             if (!renderedFromCache) {
                 const errorMessage = (apiError instanceof Error) ? apiError.message : '차트 데이터를 불러오지 못했습니다.';
                 showChartError(errorMessage);
+            }
+        }
+    };
+    const redrawChartsForPeriod = (days) => {
+        currentChartPeriodDays = days;
+        const periodButtons = document.querySelectorAll('.chart-period-button');
+        periodButtons.forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.periodDays, 10) === days);
+        });
+        if (activeChartRedraw && activeChartHistory) {
+            try {
+                activeChartRedraw(activeChartHistory, activeChartSource, currentChartPeriodDays);
+            }
+            catch (error) {
+                console.error('Failed to redraw charts for selected period:', error);
             }
         }
     };
@@ -1585,6 +1611,14 @@ document.addEventListener('DOMContentLoaded', () => {
         // Clear old chart instances
         Object.values(charts).forEach(chart => chart?.destroy());
         charts = {};
+        // Reset chart period selection to default for the newly opened ETF
+        currentChartPeriodDays = DEFAULT_CHART_PERIOD_DAYS;
+        activeChartRedraw = null;
+        activeChartHistory = null;
+        activeChartSource = null;
+        document.querySelectorAll('.chart-period-button').forEach(btn => {
+            btn.classList.toggle('active', parseInt(btn.dataset.periodDays, 10) === DEFAULT_CHART_PERIOD_DAYS);
+        });
         // Show modal content area immediately
         modalData.classList.remove('hidden');
         modalLoader.classList.add('hidden');
@@ -1699,6 +1733,15 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal();
         }
     });
+    const chartPeriodSelector = document.getElementById('chart-period-selector');
+    if (chartPeriodSelector) {
+        chartPeriodSelector.addEventListener('click', (event) => {
+            const button = event.target.closest('.chart-period-button');
+            if (button && button.dataset.periodDays) {
+                redrawChartsForPeriod(parseInt(button.dataset.periodDays, 10));
+            }
+        });
+    }
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape' && !modal.classList.contains('hidden')) {
             closeModal();
