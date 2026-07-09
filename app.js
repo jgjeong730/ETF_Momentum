@@ -270,6 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const weight1mInput = document.getElementById('weight-1m');
     const weight3mInput = document.getElementById('weight-3m');
     const weight6mInput = document.getElementById('weight-6m');
+    const weight12mInput = document.getElementById('weight-12m');
     const minVolumeInput = document.getElementById('min-volume');
     const minTradeValueInput = document.getElementById('min-trade-value');
     const displayCountInput = document.getElementById('display-count');
@@ -310,7 +311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeChartRedraw = null;
     let activeChartHistory = null;
     let activeChartSource = null;
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !weight12mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -566,10 +567,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return null;
             });
-            const [oneWeek, twoWeek, oneMonth, threeMonth, sixMonth] = returns;
+            const [oneWeek, twoWeek, oneMonth, threeMonth, sixMonth, twelveMonth] = returns;
             let momentumScore = null;
-            if (oneWeek !== null && twoWeek !== null && oneMonth !== null && threeMonth !== null && sixMonth !== null) {
-                momentumScore = (oneWeek * weights.w1w) + (twoWeek * weights.w2w) + (oneMonth * weights.w1m) + (threeMonth * weights.w3m) + (sixMonth * weights.w6m);
+            if (oneWeek !== null && twoWeek !== null && oneMonth !== null && threeMonth !== null && sixMonth !== null && twelveMonth !== null) {
+                momentumScore = (oneWeek * weights.w1w) + (twoWeek * weights.w2w) + (oneMonth * weights.w1m) + (threeMonth * weights.w3m) + (sixMonth * weights.w6m) + (twelveMonth * weights.w12m);
             }
             etfResults.push({ ...item, returns, momentumScore });
         }
@@ -689,6 +690,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { days: 30, weight: weights.w1m }, // 1 month
                 { days: 90, weight: weights.w3m }, // 3 months
                 { days: 180, weight: weights.w6m }, // 6 months
+                { days: 360, weight: weights.w12m }, // 12 months
             ];
             const returns = [];
             let canCalculate = true;
@@ -726,7 +728,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     (returns[1] * periods[1].weight) +
                     (returns[2] * periods[2].weight) +
                     (returns[3] * periods[3].weight) +
-                    (returns[4] * periods[4].weight);
+                    (returns[4] * periods[4].weight) +
+                    (returns[5] * periods[5].weight);
                 momentumResults.push({ date: currentDay.date, score });
             }
             else {
@@ -802,11 +805,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 return isNaN(value) ? fallback : value;
             };
             const weights = {
-                w1w: parseWeight(weight1wInput, 48),
-                w2w: parseWeight(weight2wInput, 24),
-                w1m: parseWeight(weight1mInput, 12),
-                w3m: parseWeight(weight3mInput, 4),
-                w6m: parseWeight(weight6mInput, 2),
+                w1w: parseWeight(weight1wInput, 40),
+                w2w: parseWeight(weight2wInput, 25),
+                w1m: parseWeight(weight1mInput, 15),
+                w3m: parseWeight(weight3mInput, 10),
+                w6m: parseWeight(weight6mInput, 5),
+                w12m: parseWeight(weight12mInput, 5),
             };
             const dailyMomentumData = calculateDailyMomentum(priceHistoryForCalc, weights);
             const weeklyData = aggregateToWeekly(priceHistoryForCalc);
@@ -1130,7 +1134,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const baseDate = new Date(baseDateInput.value);
             const endDate = new Date(baseDate);
             const beginDate = new Date(baseDate);
-            const DAYS_TO_FETCH = 365;
+            const DAYS_TO_FETCH = 550; // extra buffer beyond 1 year so the 12-month lookback has data to compare against
             beginDate.setDate(beginDate.getDate() - DAYS_TO_FETCH);
             const apiHistory = await fetchHistoryWithChunking(apiKey, isinCd, beginDate, endDate);
             if (!apiHistory || apiHistory.length === 0) {
@@ -1613,12 +1617,20 @@ document.addEventListener('DOMContentLoaded', () => {
             return isNaN(value) ? fallback : value;
         };
         const weights = {
-            w1w: parseWeight(weight1wInput, 48),
-            w2w: parseWeight(weight2wInput, 24),
-            w1m: parseWeight(weight1mInput, 12),
-            w3m: parseWeight(weight3mInput, 4),
-            w6m: parseWeight(weight6mInput, 2),
+            w1w: parseWeight(weight1wInput, 40),
+            w2w: parseWeight(weight2wInput, 25),
+            w1m: parseWeight(weight1mInput, 15),
+            w3m: parseWeight(weight3mInput, 10),
+            w6m: parseWeight(weight6mInput, 5),
+            w12m: parseWeight(weight12mInput, 5),
         };
+        const weightSum = weights.w1w + weights.w2w + weights.w1m + weights.w3m + weights.w6m + weights.w12m;
+        if (Math.abs(weightSum - 100) > 0.001) {
+            errorOutput.textContent = `가중치 합계는 100이어야 합니다. 현재 합계: ${weightSum.toFixed(1)}`;
+            errorOutput.classList.remove('hidden');
+            tableContainer.classList.add('hidden');
+            return;
+        }
         const filters = {
             minVolume: (parseFloat(minVolumeInput.value) || 0) * 10000,
             minTradeValue: (parseFloat(minTradeValueInput.value) || 0) * 100000000,
