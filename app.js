@@ -1315,6 +1315,50 @@ document.addEventListener('DOMContentLoaded', () => {
         td.appendChild(button);
         return td;
     };
+    const createWatchlistManageCell = (isinCd, index, total) => {
+        const td = document.createElement('td');
+        td.className = 'watchlist-manage-cell';
+        const wrapper = document.createElement('span');
+        wrapper.className = 'watchlist-manage-wrapper';
+        const upButton = document.createElement('button');
+        upButton.type = 'button';
+        upButton.className = 'watchlist-move-button';
+        upButton.dataset.isinCd = isinCd;
+        upButton.dataset.move = 'up';
+        upButton.textContent = '▲';
+        upButton.setAttribute('aria-label', '위로 이동');
+        upButton.disabled = index === 0;
+        const downButton = document.createElement('button');
+        downButton.type = 'button';
+        downButton.className = 'watchlist-move-button';
+        downButton.dataset.isinCd = isinCd;
+        downButton.dataset.move = 'down';
+        downButton.textContent = '▼';
+        downButton.setAttribute('aria-label', '아래로 이동');
+        downButton.disabled = index === total - 1;
+        wrapper.appendChild(upButton);
+        wrapper.appendChild(downButton);
+        const removeButton = document.createElement('button');
+        removeButton.type = 'button';
+        removeButton.className = 'action-button secondary watchlist-toggle-button';
+        removeButton.dataset.isinCd = isinCd;
+        removeButton.dataset.action = 'remove';
+        removeButton.textContent = '− 제거';
+        wrapper.appendChild(removeButton);
+        td.appendChild(wrapper);
+        return td;
+    };
+    const moveWatchlistItem = (isinCd, direction) => {
+        const index = watchlist.findIndex(entry => entry.isinCd === isinCd);
+        if (index === -1)
+            return;
+        const targetIndex = direction === 'up' ? index - 1 : index + 1;
+        if (targetIndex < 0 || targetIndex >= watchlist.length)
+            return;
+        [watchlist[index], watchlist[targetIndex]] = [watchlist[targetIndex], watchlist[index]];
+        saveWatchlist();
+        renderWatchlist();
+    };
     const saveWatchlist = () => {
         try {
             localStorage.setItem(WATCHLIST_STORAGE_KEY, JSON.stringify(watchlist));
@@ -1381,7 +1425,7 @@ document.addEventListener('DOMContentLoaded', () => {
         watchlistCount.textContent = `(${watchlist.length})`;
         watchlistEmpty.classList.add('hidden');
         watchlistTableContainer.classList.remove('hidden');
-        watchlist.forEach(entry => {
+        watchlist.forEach((entry, index) => {
             let row;
             if (entry.snapshot) {
                 row = renderRow(entry.snapshot);
@@ -1394,7 +1438,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 td.textContent = `${entry.itmsNm} — '모멘텀 계산하기'를 실행하면 데이터가 표시됩니다.`;
                 row.appendChild(td);
             }
-            row.appendChild(createWatchlistActionCell(entry.isinCd, true));
+            row.appendChild(createWatchlistManageCell(entry.isinCd, index, watchlist.length));
             watchlistTableBody.appendChild(row);
         });
     };
@@ -1613,6 +1657,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nameCell = target.closest('.item-name-clickable');
         if (nameCell && nameCell.dataset.itemName && nameCell.dataset.isinCd) {
             openModal(nameCell.dataset.itemName, nameCell.dataset.isinCd);
+            return;
+        }
+        const moveButton = target.closest('.watchlist-move-button');
+        if (moveButton && moveButton.dataset.isinCd && !moveButton.disabled) {
+            moveWatchlistItem(moveButton.dataset.isinCd, moveButton.dataset.move);
             return;
         }
         const toggleButton = target.closest('.watchlist-toggle-button');

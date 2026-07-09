@@ -137,6 +137,41 @@ header p {
 
 .watchlist-toggle-button {
     white-space: nowrap;
+    padding: 4px 10px;
+    font-size: 0.85rem;
+}
+
+td.watchlist-manage-cell {
+    white-space: nowrap;
+}
+
+.watchlist-manage-wrapper {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.watchlist-move-button {
+    font-family: var(--font-family);
+    background-color: #e9ecef;
+    color: var(--text-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    line-height: 1;
+    font-size: 0.75rem;
+    cursor: pointer;
+}
+
+.watchlist-move-button:hover:not(:disabled) {
+    background-color: #dee2e6;
+}
+
+.watchlist-move-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
 }
 
 .momentum-controls {
