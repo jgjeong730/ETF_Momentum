@@ -610,13 +610,20 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
 }
 
 #performance-chart-container {
-    height: 260px;
+    height: 280px;
     min-height: 100px;
-    margin-bottom: 16px;
+    margin-bottom: 32px;
 }
 
 #performance-table {
+    table-layout: fixed;
     margin-bottom: 8px;
+}
+
+#performance-table th,
+#performance-table td {
+    width: 16.66%;
+    text-align: center;
 }
 
 .chart-container .loader {

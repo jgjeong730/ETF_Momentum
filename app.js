@@ -1276,7 +1276,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         responsive: true, maintainAspectRatio: false,
                         plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (c) => `${c.parsed.y?.toFixed(2)}%` } } },
                         scales: {
-                            x: { ticks: { display: false } },
+                            x: { ticks: { font: { size: 10 }, maxRotation: 0, autoSkipPadding: 30 } },
                             y: { ticks: { display: true, font: { size: 10 }, callback: (v) => `${v}%` } }
                         }
                     }
