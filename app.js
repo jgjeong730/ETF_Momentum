@@ -285,22 +285,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalLoader = document.getElementById('modal-loader');
     const modalError = document.getElementById('modal-error');
     const modalData = document.getElementById('modal-data');
-    const modalDescription = document.getElementById('modal-description');
-    const modalEtfLinkContainer = document.getElementById('modal-etf-link-container');
-    const modalEtfLink = document.getElementById('modal-etf-link');
-    const modalHoldingsList = document.getElementById('modal-holdings-list');
-    const modalHoldingsDate = document.getElementById('modal-holdings-date');
-    const modalNewsList = document.getElementById('modal-news-list');
-    const modalVideosList = document.getElementById('modal-videos-list');
-    const modalSourcesList = document.getElementById('modal-sources-list');
     const downloadCsvButton = document.getElementById('download-csv-button');
     const downloadStatus = document.getElementById('download-status');
-    // AI Analysis elements in Modal
-    const fetchAiAnalysisButton = document.getElementById('fetch-ai-analysis-button');
-    const aiAnalysisPrompt = document.getElementById('ai-analysis-prompt');
-    const aiAnalysisLoader = document.getElementById('ai-analysis-loader');
-    const aiAnalysisError = document.getElementById('ai-analysis-error');
-    const aiAnalysisResults = document.getElementById('ai-analysis-results');
     // Sector elements
     const sectorSummary = document.getElementById('sector-summary');
     const sectorLegend = document.getElementById('sector-legend');
@@ -317,13 +303,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const watchlistTableBody = document.getElementById('watchlist-table-body');
     // Fix: Using any for charts to avoid complex Chart.js type compatibility issues in this environment
     let charts = {};
+    let performanceChart = null;
     // Chart period selection state
     const DEFAULT_CHART_PERIOD_DAYS = 250;
     let currentChartPeriodDays = DEFAULT_CHART_PERIOD_DAYS;
     let activeChartRedraw = null;
     let activeChartHistory = null;
     let activeChartSource = null;
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !modalDescription || !modalEtfLinkContainer || !modalEtfLink || !modalHoldingsList || !modalHoldingsDate || !modalNewsList || !modalVideosList || !modalSourcesList || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !fetchAiAnalysisButton || !aiAnalysisPrompt || !aiAnalysisLoader || !aiAnalysisError || !aiAnalysisResults || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -587,16 +574,6 @@ document.addEventListener('DOMContentLoaded', () => {
             etfResults.push({ ...item, returns, momentumScore });
         }
         return { results: etfResults, actualDate: actualBaseDateStr };
-    };
-    const fetchAndDisplayAiAnalysis = async (itemName, isinCd) => {
-        // AI(Gemini) 기반 종목 분석 기능은 이 복제본에서 비활성화되어 있습니다.
-        // 원본은 배포 시 서버가 주입하는 Gemini API 키를 통해 /api-proxy로 호출했으나,
-        // 이 정적 버전에는 해당 백엔드가 없어 핵심 모멘텀 계산기 기능만 제공합니다.
-        aiAnalysisPrompt.classList.add('hidden');
-        aiAnalysisLoader.classList.add('hidden');
-        aiAnalysisResults.classList.add('hidden');
-        aiAnalysisError.textContent = 'AI 분석 기능은 이 복제본에서 지원되지 않습니다. (Gemini API 백엔드 미포함)';
-        aiAnalysisError.classList.remove('hidden');
     };
     const calculateStochastic = (data, period) => {
         const stochasticValues = [];
@@ -1139,6 +1116,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 activeChartHistory = cachedHistory;
                 activeChartSource = 'Cache';
                 renderedFromCache = true;
+                renderPerformanceSummary(cachedHistory);
             }
         }
         catch (cacheError) {
@@ -1166,6 +1144,7 @@ document.addEventListener('DOMContentLoaded', () => {
             activeChartRedraw = drawChartsFromHistory;
             activeChartHistory = apiHistory;
             activeChartSource = 'API';
+            renderPerformanceSummary(apiHistory);
         }
         catch (apiError) {
             console.error("Failed to fetch or draw charts from API:", apiError);
@@ -1188,6 +1167,124 @@ document.addEventListener('DOMContentLoaded', () => {
             catch (error) {
                 console.error('Failed to redraw charts for selected period:', error);
             }
+        }
+    };
+    // --- Performance Summary (computed from already-fetched price history; no extra API calls) ---
+    const buildDailyCloseSeries = (dailyResults) => {
+        const uniqueDailyResults = Array.from(new Map(dailyResults.map(item => [item.basDt, item])).values())
+            .sort((a, b) => a.basDt.localeCompare(b.basDt));
+        return uniqueDailyResults
+            .map(item => ({ date: item.basDt, close: parseFloat(item.clpr) }))
+            .filter(d => isFinite(d.close) && d.close > 0);
+    };
+    const computePerformanceSummary = (dailySeries) => {
+        if (dailySeries.length < 2)
+            return null;
+        const lastClose = dailySeries[dailySeries.length - 1].close;
+        const periods = [
+            { label: '1개월', days: 21 },
+            { label: '3개월', days: 63 },
+            { label: '6개월', days: 126 },
+            { label: '1년', days: 250 },
+        ];
+        const returns = periods.map(p => {
+            const idx = dailySeries.length - 1 - p.days;
+            if (idx < 0)
+                return null;
+            const pastClose = dailySeries[idx].close;
+            if (!pastClose)
+                return null;
+            return ((lastClose - pastClose) / pastClose) * 100;
+        });
+        const perfWindow = dailySeries.slice(-DEFAULT_CHART_PERIOD_DAYS);
+        const dailyReturns = [];
+        for (let i = 1; i < perfWindow.length; i++) {
+            const prev = perfWindow[i - 1].close;
+            const curr = perfWindow[i].close;
+            if (prev && curr) {
+                dailyReturns.push((curr - prev) / prev);
+            }
+        }
+        let volatility = null;
+        if (dailyReturns.length > 1) {
+            const mean = dailyReturns.reduce((a, b) => a + b, 0) / dailyReturns.length;
+            const variance = dailyReturns.reduce((sum, r) => sum + Math.pow(r - mean, 2), 0) / (dailyReturns.length - 1);
+            volatility = Math.sqrt(variance) * Math.sqrt(252) * 100;
+        }
+        const baseClose = perfWindow[0]?.close;
+        const perfSeries = baseClose
+            ? perfWindow.map(d => ({ date: d.date, value: ((d.close - baseClose) / baseClose) * 100 }))
+            : [];
+        return {
+            periods: periods.map((p, i) => ({ label: p.label, value: returns[i] })),
+            volatility,
+            perfSeries,
+        };
+    };
+    const renderPerformanceSummary = (dailyResults) => {
+        const performanceTable = document.getElementById('performance-table');
+        const performanceTableBody = document.getElementById('performance-table-body');
+        const performanceEmpty = document.getElementById('performance-empty');
+        const performanceChartContainer = document.getElementById('performance-chart-container');
+        if (!performanceTable || !performanceTableBody || !performanceEmpty || !performanceChartContainer)
+            return;
+        const dailySeries = buildDailyCloseSeries(dailyResults);
+        const summary = computePerformanceSummary(dailySeries);
+        performanceChart?.destroy();
+        performanceChart = null;
+        if (!summary) {
+            performanceTable.classList.add('hidden');
+            performanceEmpty.classList.remove('hidden');
+            performanceChartContainer.innerHTML = '';
+            return;
+        }
+        performanceEmpty.classList.add('hidden');
+        performanceTableBody.innerHTML = '';
+        const row = document.createElement('tr');
+        let rowHtml = '<td>운용성과(%)</td>';
+        summary.periods.forEach(p => {
+            rowHtml += p.value === null ? '<td>N/A</td>' : `<td class="${getChangeClass(p.value)}">${p.value.toFixed(2)}%</td>`;
+        });
+        rowHtml += summary.volatility === null ? '<td>N/A</td>' : `<td>${summary.volatility.toFixed(2)}%</td>`;
+        row.innerHTML = rowHtml;
+        performanceTableBody.appendChild(row);
+        performanceTable.classList.remove('hidden');
+        if (summary.perfSeries.length > 1) {
+            performanceChartContainer.innerHTML = `<h4>성과 그래프 (최근 1년, 기간 시작일 대비 누적수익률 %)</h4><canvas id="performance-chart"></canvas>`;
+            const ctx = document.getElementById('performance-chart')?.getContext('2d');
+            if (ctx) {
+                performanceChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: summary.perfSeries.map(d => `${d.date.substring(4, 6)}-${d.date.substring(6, 8)}`),
+                        datasets: [{
+                                label: '누적수익률(%)',
+                                data: summary.perfSeries.map(d => d.value),
+                                tension: 0.1,
+                                pointRadius: 0,
+                                borderWidth: 2,
+                                segment: {
+                                    borderColor: (ctx2) => {
+                                        if (ctx2.p0.raw === null || ctx2.p1.raw === null)
+                                            return undefined;
+                                        return ctx2.p1.raw >= 0 ? 'rgba(224, 49, 49, 0.8)' : 'rgba(25, 113, 194, 0.8)';
+                                    }
+                                },
+                            }]
+                    },
+                    options: {
+                        responsive: true, maintainAspectRatio: false,
+                        plugins: { legend: { display: false }, tooltip: { enabled: true, callbacks: { label: (c) => `${c.parsed.y?.toFixed(2)}%` } } },
+                        scales: {
+                            x: { ticks: { display: false } },
+                            y: { ticks: { display: true, font: { size: 10 }, callback: (v) => `${v}%` } }
+                        }
+                    }
+                });
+            }
+        }
+        else {
+            performanceChartContainer.innerHTML = '';
         }
     };
     const renderRow = (item, index) => {
@@ -1603,14 +1700,24 @@ document.addEventListener('DOMContentLoaded', () => {
         modalTitle.textContent = itemName;
         modal.dataset.isinCd = isinCd;
         modal.dataset.itemName = itemName;
-        // Reset AI Analysis UI before showing
-        aiAnalysisPrompt.classList.remove('hidden');
-        aiAnalysisResults.classList.add('hidden');
-        aiAnalysisLoader.classList.add('hidden');
-        aiAnalysisError.classList.add('hidden');
         // Clear old chart instances
         Object.values(charts).forEach(chart => chart?.destroy());
         charts = {};
+        performanceChart?.destroy();
+        performanceChart = null;
+        // Reset performance summary UI for the newly opened ETF
+        const performanceTableReset = document.getElementById('performance-table');
+        const performanceTableBodyReset = document.getElementById('performance-table-body');
+        const performanceEmptyReset = document.getElementById('performance-empty');
+        const performanceChartContainerReset = document.getElementById('performance-chart-container');
+        if (performanceTableBodyReset)
+            performanceTableBodyReset.innerHTML = '';
+        if (performanceTableReset)
+            performanceTableReset.classList.add('hidden');
+        if (performanceEmptyReset)
+            performanceEmptyReset.classList.add('hidden');
+        if (performanceChartContainerReset)
+            performanceChartContainerReset.innerHTML = '';
         // Reset chart period selection to default for the newly opened ETF
         currentChartPeriodDays = DEFAULT_CHART_PERIOD_DAYS;
         activeChartRedraw = null;
@@ -1636,6 +1743,8 @@ document.addEventListener('DOMContentLoaded', () => {
         delete modal.dataset.itemName;
         Object.values(charts).forEach(chart => chart?.destroy());
         charts = {};
+        performanceChart?.destroy();
+        performanceChart = null;
     };
     const handleFilterClick = (event) => {
         const target = event.target;
@@ -1962,11 +2071,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     fetchButton.addEventListener('click', calculateAndStoreResults);
     showNewEtfsButton.addEventListener('click', renderNewEtfs);
-    fetchAiAnalysisButton.addEventListener('click', async () => {
-        const itemName = modal.dataset.itemName;
-        const isinCd = modal.dataset.isinCd;
-        if (itemName && isinCd) {
-            await fetchAndDisplayAiAnalysis(itemName, isinCd);
-        }
-    });
 });

@@ -609,6 +609,16 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
     min-height: 100px;
 }
 
+#performance-chart-container {
+    height: 260px;
+    min-height: 100px;
+    margin-bottom: 16px;
+}
+
+#performance-table {
+    margin-bottom: 8px;
+}
+
 .chart-container .loader {
     position: absolute;
     top: 50%;
@@ -1342,6 +1352,25 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
                     <div id="modal-error" class="hidden"></div>
                     <div id="modal-data" class="hidden">
                         
+                        <h3>운용 성과 <span class="date-info">(최근 1년, 받아온 시세 데이터 기준 계산)</span></h3>
+                        <div id="performance-summary-container">
+                            <div id="performance-chart-container" class="chart-container full-width"></div>
+                            <table id="performance-table" class="hidden">
+                                <thead>
+                                    <tr>
+                                        <th>구분</th>
+                                        <th>1개월</th>
+                                        <th>3개월</th>
+                                        <th>6개월</th>
+                                        <th>1년</th>
+                                        <th>변동성(연율화)</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="performance-table-body"></tbody>
+                            </table>
+                            <p id="performance-empty" class="status-message hidden">성과를 계산하기에 데이터가 부족합니다.</p>
+                        </div>
+
                         <h3>상세 차트</h3>
                         <div id="chart-period-selector" class="chart-period-selector">
                             <button type="button" class="chart-period-button" data-period-days="5">1주</button>
@@ -1379,42 +1408,6 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
                              <span id="download-status"></span>
                         </div>
 
-                        <h3>AI 분석 정보</h3>
-                        <div id="ai-analysis-container">
-                            <div id="ai-analysis-prompt">
-                                <p>ETF의 최신 상품 설명, 주요 편입 종목, 관련 키워드 등의 분석 정보를 AI를 통해 실시간으로 조회합니다.</p>
-                                <button id="fetch-ai-analysis-button" class="action-button">최신 정보 분석하기</button>
-                            </div>
-                            <div id="ai-analysis-loader" class="loader hidden"></div>
-                            <div id="ai-analysis-error" class="hidden"></div>
-                            <div id="ai-analysis-results" class="hidden">
-                                <h4>종목 설명</h4>
-                                <p id="modal-description"></p>
-                                <p id="modal-etf-link-container" class="hidden">
-                                    <strong>정보 출처: </strong><a id="modal-etf-link" href="#" target="_blank" rel="noopener noreferrer"></a>
-                                </p>
-        
-                                <h4>주요 편입 종목 (Top 10) <span id="modal-holdings-date" class="date-info"></span></h4>
-                                <div id="modal-holdings-container">
-                                    <table id="modal-holdings-table">
-                                        <thead>
-                                            <tr>
-                                                <th>종목명</th>
-                                                <th>비중</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="modal-holdings-list"></tbody>
-                                    </table>
-                                </div>
-        
-                                <h4>관련 뉴스 검색하기</h4>
-                                <ul id="modal-news-list"></ul>
-                                <h4>관련 동영상 검색하기</h4>
-                                <ul id="modal-videos-list"></ul>
-                                <h4>검색 정보 출처 (Google)</h4>
-                                <ul id="modal-sources-list"></ul>
-                            </div>
-                        </div>
                     </div>
                 </div>
             </div>
