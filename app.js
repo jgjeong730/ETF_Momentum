@@ -271,6 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const weight3mInput = document.getElementById('weight-3m');
     const weight6mInput = document.getElementById('weight-6m');
     const weight12mInput = document.getElementById('weight-12m');
+    const excludeRecentMonthInput = document.getElementById('exclude-recent-month');
     const minVolumeInput = document.getElementById('min-volume');
     const minTradeValueInput = document.getElementById('min-trade-value');
     const displayCountInput = document.getElementById('display-count');
@@ -311,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeChartRedraw = null;
     let activeChartHistory = null;
     let activeChartSource = null;
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !weight12mInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !weight12mInput || !excludeRecentMonthInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -530,7 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return rankMap;
     };
-    const getRankedEtfsForDate = async (apiKey, baseDate, weights, filters) => {
+    const getRankedEtfsForDate = async (apiKey, baseDate, weights, filters, excludeRecentMonth) => {
         const dataResult = await getDataForDate(apiKey, baseDate);
         if (!dataResult)
             return null;
@@ -543,6 +544,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filteredItems.length === 0)
             return { results: [], actualDate: actualBaseDateStr };
         const actualBaseDate = new Date(parseInt(actualBaseDateStr.substring(0, 4), 10), parseInt(actualBaseDateStr.substring(4, 6), 10) - 1, parseInt(actualBaseDateStr.substring(6, 8), 10));
+        // When excluding the most recent month (12-1 momentum style), every return is
+        // measured as of one month ago instead of today, so the reversal-prone last
+        // month never enters any of the lookback windows.
+        const anchorDate = excludeRecentMonth ? getPastDate(actualBaseDate, 1, 0) : actualBaseDate;
         const periods = [
             { label: '1주', months: 0, days: 7 },
             { label: '2주', months: 0, days: 14 },
@@ -551,19 +556,21 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: '6개월', months: 6, days: 0 },
             { label: '12개월', months: 12, days: 0 },
         ];
+        const anchorDataPromise = excludeRecentMonth ? getDataForDate(apiKey, anchorDate) : Promise.resolve(dataResult);
         const historicalDataPromises = periods.map(p => {
-            const pastDate = getPastDate(actualBaseDate, p.months, p.days);
+            const pastDate = getPastDate(anchorDate, p.months, p.days);
             return getDataForDate(apiKey, pastDate);
         });
-        const historicalResults = await Promise.all(historicalDataPromises);
+        const [anchorResult, ...historicalResults] = await Promise.all([anchorDataPromise, ...historicalDataPromises]);
+        const anchorPriceMap = createPriceMap(anchorResult ? anchorResult.items : null);
         const historicalPriceMaps = historicalResults.map(result => createPriceMap(result ? result.items : null));
         const etfResults = [];
         for (const item of filteredItems) {
-            const currentPrice = parseFloat(item.clpr);
+            const anchorPrice = excludeRecentMonth ? anchorPriceMap.get(item.isinCd) : parseFloat(item.clpr);
             const returns = historicalPriceMaps.map(priceMap => {
                 const pastPrice = priceMap.get(item.isinCd);
-                if (pastPrice && currentPrice && pastPrice > 0) {
-                    return ((currentPrice - pastPrice) / pastPrice) * 100;
+                if (pastPrice && anchorPrice && pastPrice > 0) {
+                    return ((anchorPrice - pastPrice) / pastPrice) * 100;
                 }
                 return null;
             });
@@ -671,7 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const getHistoryFromCache = (isinCd) => {
         return etfHistoryCache.get(isinCd) || null;
     };
-    const calculateDailyMomentum = (dailyData, weights) => {
+    const calculateDailyMomentum = (dailyData, weights, excludeRecentMonth) => {
         // We need at least 6 months of data + a buffer. ~130 trading days in 6 months.
         if (dailyData.length < 130) {
             return [];
@@ -680,9 +687,35 @@ document.addEventListener('DOMContentLoaded', () => {
         const dateToIndexMap = new Map();
         dailyData.forEach((d, i) => dateToIndexMap.set(d.date, i));
         const parseDateString = (dateStr) => new Date(parseInt(dateStr.substring(0, 4)), parseInt(dateStr.substring(4, 6)) - 1, parseInt(dateStr.substring(6, 8)));
+        // Find the closest trading day on or before targetDate by checking up to 7 calendar days back
+        const findLookbackIndex = (targetDate) => {
+            for (let j = 0; j < 7; j++) {
+                const checkDate = new Date(targetDate);
+                checkDate.setDate(checkDate.getDate() - j);
+                const checkDateStr = formatDate(checkDate);
+                if (dateToIndexMap.has(checkDateStr)) {
+                    return dateToIndexMap.get(checkDateStr);
+                }
+            }
+            return -1;
+        };
         for (let i = 0; i < dailyData.length; i++) {
             const currentDay = dailyData[i];
             const currentDate = parseDateString(currentDay.date);
+            // When excluding the most recent month, anchor every lookback window one
+            // month earlier so the reversal-prone last month never enters the score.
+            let anchorIndex = i;
+            if (excludeRecentMonth) {
+                const anchorDate = new Date(currentDate);
+                anchorDate.setDate(anchorDate.getDate() - 30);
+                anchorIndex = findLookbackIndex(anchorDate);
+            }
+            if (anchorIndex === -1) {
+                momentumResults.push({ date: currentDay.date, score: null });
+                continue;
+            }
+            const anchorDate = parseDateString(dailyData[anchorIndex].date);
+            const anchorPrice = dailyData[anchorIndex].close;
             // Use calendar days for period calculation
             const periods = [
                 { days: 7, weight: weights.w1w },
@@ -695,24 +728,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const returns = [];
             let canCalculate = true;
             for (const period of periods) {
-                const pastDate = new Date(currentDate);
+                const pastDate = new Date(anchorDate);
                 pastDate.setDate(pastDate.getDate() - period.days);
-                let lookbackIndex = -1;
-                // Find the closest trading day on or before pastDate by checking up to 7 calendar days back
-                for (let j = 0; j < 7; j++) {
-                    const checkDate = new Date(pastDate);
-                    checkDate.setDate(checkDate.getDate() - j);
-                    const checkDateStr = formatDate(checkDate);
-                    if (dateToIndexMap.has(checkDateStr)) {
-                        lookbackIndex = dateToIndexMap.get(checkDateStr);
-                        break;
-                    }
-                }
+                const lookbackIndex = findLookbackIndex(pastDate);
                 if (lookbackIndex !== -1) {
                     const pastPrice = dailyData[lookbackIndex].close;
-                    const currentPrice = currentDay.close;
-                    if (pastPrice && currentPrice && pastPrice > 0) {
-                        returns.push(((currentPrice - pastPrice) / pastPrice) * 100);
+                    if (pastPrice && anchorPrice && pastPrice > 0) {
+                        returns.push(((anchorPrice - pastPrice) / pastPrice) * 100);
                     }
                     else {
                         returns.push(null);
@@ -805,14 +827,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 return isNaN(value) ? fallback : value;
             };
             const weights = {
-                w1w: parseWeight(weight1wInput, 40),
-                w2w: parseWeight(weight2wInput, 25),
-                w1m: parseWeight(weight1mInput, 15),
-                w3m: parseWeight(weight3mInput, 10),
-                w6m: parseWeight(weight6mInput, 5),
-                w12m: parseWeight(weight12mInput, 5),
+                w1w: parseWeight(weight1wInput, 0),
+                w2w: parseWeight(weight2wInput, 0),
+                w1m: parseWeight(weight1mInput, 0),
+                w3m: parseWeight(weight3mInput, 0),
+                w6m: parseWeight(weight6mInput, 0),
+                w12m: parseWeight(weight12mInput, 0),
             };
-            const dailyMomentumData = calculateDailyMomentum(priceHistoryForCalc, weights);
+            const dailyMomentumData = calculateDailyMomentum(priceHistoryForCalc, weights, excludeRecentMonthInput.checked);
             const weeklyData = aggregateToWeekly(priceHistoryForCalc);
             const weeklyStochastic = calculateStochastic(weeklyData, STOCHASTIC_PERIOD);
             const weeklyRsiData = calculateRSI(weeklyData);
@@ -1617,12 +1639,12 @@ document.addEventListener('DOMContentLoaded', () => {
             return isNaN(value) ? fallback : value;
         };
         const weights = {
-            w1w: parseWeight(weight1wInput, 40),
-            w2w: parseWeight(weight2wInput, 25),
-            w1m: parseWeight(weight1mInput, 15),
-            w3m: parseWeight(weight3mInput, 10),
-            w6m: parseWeight(weight6mInput, 5),
-            w12m: parseWeight(weight12mInput, 5),
+            w1w: parseWeight(weight1wInput, 0),
+            w2w: parseWeight(weight2wInput, 0),
+            w1m: parseWeight(weight1mInput, 0),
+            w3m: parseWeight(weight3mInput, 0),
+            w6m: parseWeight(weight6mInput, 0),
+            w12m: parseWeight(weight12mInput, 0),
         };
         const weightSum = weights.w1w + weights.w2w + weights.w1m + weights.w3m + weights.w6m + weights.w12m;
         if (Math.abs(weightSum - 100) > 0.001) {
@@ -1656,8 +1678,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
             const pastDate = getPastDate(new Date(selectedDate), 0, rankChangePeriod);
             const [currentData, pastData] = await Promise.all([
-                getRankedEtfsForDate(apiKey, selectedDate, weights, filters),
-                getRankedEtfsForDate(apiKey, pastDate, weights, filters)
+                getRankedEtfsForDate(apiKey, selectedDate, weights, filters, excludeRecentMonthInput.checked),
+                getRankedEtfsForDate(apiKey, pastDate, weights, filters, excludeRecentMonthInput.checked)
             ]);
             if (!currentData || !currentData.results) {
                 const today = new Date();
