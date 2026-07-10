@@ -135,6 +135,36 @@ header p {
     color: #6c757d;
 }
 
+.watchlist-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.watchlist-header h2 {
+    margin: 0;
+}
+
+.watchlist-backup-controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.watchlist-backup-controls .action-button {
+    padding: 6px 14px;
+    font-size: 0.85rem;
+    display: inline-block;
+    cursor: pointer;
+}
+
+#watchlist-import-status {
+    margin-top: -4px;
+}
+
 .watchlist-toggle-button {
     white-space: nowrap;
     padding: 4px 10px;
@@ -1289,7 +1319,15 @@ th:nth-child(1), th:nth-child(2), th:nth-child(3) {
         </section>
 
         <section class="card" id="watchlist-section">
-            <h2>관심종목 <span id="watchlist-count"></span></h2>
+            <div class="watchlist-header">
+                <h2>관심종목 <span id="watchlist-count"></span></h2>
+                <div class="watchlist-backup-controls">
+                    <button id="watchlist-export-button" class="action-button">내보내기</button>
+                    <label for="watchlist-import-input" class="action-button secondary">가져오기</label>
+                    <input type="file" id="watchlist-import-input" accept="application/json" class="hidden">
+                </div>
+            </div>
+            <p id="watchlist-import-status" class="status-message hidden"></p>
             <p id="watchlist-empty" class="status-message">관심종목이 없습니다. 위 종목찾기에서 '★ 관심종목 추가'를 눌러 추가해보세요.</p>
             <div id="watchlist-table-container" class="table-container hidden">
                 <table>

@@ -303,6 +303,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const watchlistEmpty = document.getElementById('watchlist-empty');
     const watchlistTableContainer = document.getElementById('watchlist-table-container');
     const watchlistTableBody = document.getElementById('watchlist-table-body');
+    const watchlistExportButton = document.getElementById('watchlist-export-button');
+    const watchlistImportInput = document.getElementById('watchlist-import-input');
+    const watchlistImportStatus = document.getElementById('watchlist-import-status');
     // Fix: Using any for charts to avoid complex Chart.js type compatibility issues in this environment
     let charts = {};
     let performanceChart = null;
@@ -312,7 +315,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeChartRedraw = null;
     let activeChartHistory = null;
     let activeChartSource = null;
-    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !weight12mInput || !excludeRecentMonthInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody) {
+    if (!fetchButton || !loader || !tableContainer || !tableBody || !errorOutput || !apiKeyInput || !baseDateInput || !weight1wInput || !weight2wInput || !weight1mInput || !weight3mInput || !weight6mInput || !weight12mInput || !excludeRecentMonthInput || !minVolumeInput || !minTradeValueInput || !displayCountInput || !rankChangePeriodInput || !modal || !modalCloseButton || !modalTitle || !modalLoader || !modalError || !modalData || !downloadCsvButton || !downloadStatus || !sectorSummary || !sectorLegend || !showNewEtfsButton || !newEtfsContainer || !newEtfsTableBody || !stockSearchInput || !stockSearchHint || !stockSearchEmpty || !stockSearchTableContainer || !stockSearchTableBody || !watchlistCount || !watchlistEmpty || !watchlistTableContainer || !watchlistTableBody || !watchlistExportButton || !watchlistImportInput || !watchlistImportStatus) {
         console.error('Required DOM elements not found.');
         return;
     }
@@ -1546,6 +1549,47 @@ document.addEventListener('DOMContentLoaded', () => {
         renderWatchlist();
         renderStockSearchResults();
     };
+    const exportWatchlist = () => {
+        const blob = new Blob([JSON.stringify(watchlist, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `etf_watchlist_backup_${formatDate(new Date())}.json`;
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    };
+    const importWatchlistFromFile = async (file) => {
+        try {
+            const text = await file.text();
+            const parsed = JSON.parse(text);
+            if (!Array.isArray(parsed)) {
+                throw new Error('올바른 백업 파일 형식이 아닙니다.');
+            }
+            const existingIsinCds = new Set(watchlist.map(entry => entry.isinCd));
+            let addedCount = 0;
+            for (const entry of parsed) {
+                if (entry && typeof entry.isinCd === 'string' && !existingIsinCds.has(entry.isinCd)) {
+                    watchlist.push({ isinCd: entry.isinCd, itmsNm: entry.itmsNm || entry.isinCd, snapshot: entry.snapshot || null });
+                    existingIsinCds.add(entry.isinCd);
+                    addedCount++;
+                }
+            }
+            saveWatchlist();
+            renderWatchlist();
+            renderStockSearchResults();
+            watchlistImportStatus.textContent = `가져오기 완료: 신규 ${addedCount}개 추가 (총 ${watchlist.length}개)`;
+            watchlistImportStatus.classList.remove('hidden');
+        }
+        catch (error) {
+            console.error('Failed to import watchlist:', error);
+            watchlistImportStatus.textContent = `가져오기 실패: ${error.message}`;
+            watchlistImportStatus.classList.remove('hidden');
+        }
+        setTimeout(() => { watchlistImportStatus.classList.add('hidden'); }, 5000);
+    };
     const updateWatchlistSnapshots = () => {
         if (watchlist.length === 0)
             return;
@@ -1868,6 +1912,14 @@ document.addEventListener('DOMContentLoaded', () => {
     stockSearchTableBody.addEventListener('keydown', handleResultTableKeydown);
     watchlistTableBody.addEventListener('keydown', handleResultTableKeydown);
     stockSearchInput.addEventListener('input', renderStockSearchResults);
+    watchlistExportButton.addEventListener('click', exportWatchlist);
+    watchlistImportInput.addEventListener('change', async (event) => {
+        const file = event.target.files && event.target.files[0];
+        if (file) {
+            await importWatchlistFromFile(file);
+        }
+        event.target.value = '';
+    });
     loadWatchlist();
     renderWatchlist();
     modalCloseButton.addEventListener('click', closeModal);
