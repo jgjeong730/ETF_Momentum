@@ -362,29 +362,46 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const fetchEtfDataForDate = async (apiKey, date) => {
         const BASE_URL = "https://apis.data.go.kr/1160100/service/GetSecuritiesProductInfoService/getETFPriceInfo";
-        const params = new URLSearchParams({
-            serviceKey: apiKey,
-            numOfRows: '1000',
-            pageNo: '1',
-            resultType: 'json',
-            basDt: date,
-        });
-        const url = `${BASE_URL}?${params.toString()}`;
+        const NUM_OF_ROWS = 1000;
+        const buildUrl = (pageNo) => {
+            const params = new URLSearchParams({
+                serviceKey: apiKey,
+                numOfRows: String(NUM_OF_ROWS),
+                pageNo: String(pageNo),
+                resultType: 'json',
+                basDt: date,
+            });
+            return `${BASE_URL}?${params.toString()}`;
+        };
+        const toArray = (items) => (items ? (Array.isArray(items) ? items : [items]) : []);
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                console.warn(`HTTP error for date ${date}! status: ${response.status}`);
+            const firstResponse = await fetch(buildUrl(1));
+            if (!firstResponse.ok) {
+                console.warn(`HTTP error for date ${date}! status: ${firstResponse.status}`);
                 return null;
             }
-            const data = await response.json();
-            const items = data?.response?.body?.items?.item;
-            if (!items) {
-                const errorMessage = data?.response?.header?.resultMsg;
+            const firstData = await firstResponse.json();
+            const firstItems = toArray(firstData?.response?.body?.items?.item);
+            if (firstItems.length === 0) {
+                const errorMessage = firstData?.response?.header?.resultMsg;
                 if (errorMessage && errorMessage !== 'NORMAL SERVICE.') {
                     console.warn(`API error for date ${date}: ${errorMessage}`);
                 }
+                return null;
             }
-            return items || null;
+            // The market can list more ETFs than fit on one page — fetch the
+            // remaining pages too, or newer/higher-numbered tickers silently
+            // vanish from every calculation (not just search).
+            const totalCount = firstData?.response?.body?.totalCount || firstItems.length;
+            const allItems = [...firstItems];
+            const totalPages = Math.ceil(totalCount / NUM_OF_ROWS);
+            if (totalPages > 1) {
+                const remainingPages = await Promise.all(Array.from({ length: totalPages - 1 }, (_, i) => fetch(buildUrl(i + 2)).then(r => (r.ok ? r.json() : null)).catch(() => null)));
+                for (const pageData of remainingPages) {
+                    allItems.push(...toArray(pageData?.response?.body?.items?.item));
+                }
+            }
+            return allItems;
         }
         catch (error) {
             console.warn(`Failed to fetch data for date ${date}:`, error);
