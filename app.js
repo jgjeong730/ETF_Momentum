@@ -1654,7 +1654,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         const lowerQuery = query.toLowerCase();
         const matches = universe
-            .filter(item => item.itmsNm && item.itmsNm.toLowerCase().includes(lowerQuery))
+            .filter(item => {
+                const nameMatch = item.itmsNm && item.itmsNm.toLowerCase().includes(lowerQuery);
+                const codeMatch = (item.srtnCd && item.srtnCd.toLowerCase().includes(lowerQuery)) ||
+                    (item.isinCd && item.isinCd.toLowerCase().includes(lowerQuery));
+                return nameMatch || codeMatch;
+            })
             .slice(0, 30);
         stockSearchTableBody.innerHTML = '';
         if (matches.length === 0) {
