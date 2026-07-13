@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return rankMap;
     };
-    const getRankedEtfsForDate = async (apiKey, baseDate, weights, filters, excludeRecentMonth) => {
+    const getRankedEtfsForDate = async (apiKey, baseDate, weights, filters, excludeRecentMonth, computeBothModes = false) => {
         const dataResult = await getDataForDate(apiKey, baseDate);
         if (!dataResult)
             return null;
@@ -564,10 +564,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (filteredItems.length === 0)
             return { results: [], actualDate: actualBaseDateStr };
         const actualBaseDate = new Date(parseInt(actualBaseDateStr.substring(0, 4), 10), parseInt(actualBaseDateStr.substring(4, 6), 10) - 1, parseInt(actualBaseDateStr.substring(6, 8), 10));
-        // When excluding the most recent month (12-1 momentum style), every return is
-        // measured as of one month ago instead of today, so the reversal-prone last
-        // month never enters any of the lookback windows.
-        const anchorDate = excludeRecentMonth ? getPastDate(actualBaseDate, 1, 0) : actualBaseDate;
         const periods = [
             { label: '1주', months: 0, days: 7 },
             { label: '2주', months: 0, days: 14 },
@@ -576,31 +572,59 @@ document.addEventListener('DOMContentLoaded', () => {
             { label: '6개월', months: 6, days: 0 },
             { label: '12개월', months: 12, days: 0 },
         ];
-        const anchorDataPromise = excludeRecentMonth ? getDataForDate(apiKey, anchorDate) : Promise.resolve(dataResult);
-        const historicalDataPromises = periods.map(p => {
-            const pastDate = getPastDate(anchorDate, p.months, p.days);
-            return getDataForDate(apiKey, pastDate);
-        });
-        const [anchorResult, ...historicalResults] = await Promise.all([anchorDataPromise, ...historicalDataPromises]);
-        const anchorPriceMap = createPriceMap(anchorResult ? anchorResult.items : null);
-        const historicalPriceMaps = historicalResults.map(result => createPriceMap(result ? result.items : null));
-        const etfResults = [];
-        for (const item of filteredItems) {
-            const anchorPrice = excludeRecentMonth ? anchorPriceMap.get(item.isinCd) : parseFloat(item.clpr);
-            const returns = historicalPriceMaps.map(priceMap => {
-                const pastPrice = priceMap.get(item.isinCd);
-                if (pastPrice && anchorPrice && pastPrice > 0) {
-                    return ((anchorPrice - pastPrice) / pastPrice) * 100;
-                }
-                return null;
+        // Computes returns/momentum for one anchor mode (today vs. one-month-back).
+        // When excluding the most recent month (12-1 momentum style), every return is
+        // measured as of one month ago instead of today, so the reversal-prone last
+        // month never enters any of the lookback windows.
+        const computeForMode = async (excludeMonth) => {
+            const anchorDate = excludeMonth ? getPastDate(actualBaseDate, 1, 0) : actualBaseDate;
+            const anchorDataPromise = excludeMonth ? getDataForDate(apiKey, anchorDate) : Promise.resolve(dataResult);
+            const historicalDataPromises = periods.map(p => {
+                const pastDate = getPastDate(anchorDate, p.months, p.days);
+                return getDataForDate(apiKey, pastDate);
             });
-            const [oneWeek, twoWeek, oneMonth, threeMonth, sixMonth, twelveMonth] = returns;
-            let momentumScore = null;
-            if (oneWeek !== null && twoWeek !== null && oneMonth !== null && threeMonth !== null && sixMonth !== null && twelveMonth !== null) {
-                momentumScore = (oneWeek * weights.w1w) + (twoWeek * weights.w2w) + (oneMonth * weights.w1m) + (threeMonth * weights.w3m) + (sixMonth * weights.w6m) + (twelveMonth * weights.w12m);
+            const [anchorResult, ...historicalResults] = await Promise.all([anchorDataPromise, ...historicalDataPromises]);
+            const anchorPriceMap = createPriceMap(anchorResult ? anchorResult.items : null);
+            const historicalPriceMaps = historicalResults.map(result => createPriceMap(result ? result.items : null));
+            const byIsin = new Map();
+            for (const item of filteredItems) {
+                const anchorPrice = excludeMonth ? anchorPriceMap.get(item.isinCd) : parseFloat(item.clpr);
+                const returns = historicalPriceMaps.map(priceMap => {
+                    const pastPrice = priceMap.get(item.isinCd);
+                    if (pastPrice && anchorPrice && pastPrice > 0) {
+                        return ((anchorPrice - pastPrice) / pastPrice) * 100;
+                    }
+                    return null;
+                });
+                const [oneWeek, twoWeek, oneMonth, threeMonth, sixMonth, twelveMonth] = returns;
+                let momentumScore = null;
+                if (oneWeek !== null && twoWeek !== null && oneMonth !== null && threeMonth !== null && sixMonth !== null && twelveMonth !== null) {
+                    momentumScore = (oneWeek * weights.w1w) + (twoWeek * weights.w2w) + (oneMonth * weights.w1m) + (threeMonth * weights.w3m) + (sixMonth * weights.w6m) + (twelveMonth * weights.w12m);
+                }
+                byIsin.set(item.isinCd, { returns, momentumScore });
             }
-            etfResults.push({ ...item, returns, momentumScore });
-        }
+            return byIsin;
+        };
+        // Only fetch the modes actually needed: the toggle's mode always, plus the
+        // opposite mode too when the caller wants both scores shown side by side.
+        const needToday = computeBothModes || !excludeRecentMonth;
+        const need12_1 = computeBothModes || excludeRecentMonth;
+        const [todayByIsin, mode12_1ByIsin] = await Promise.all([
+            needToday ? computeForMode(false) : Promise.resolve(null),
+            need12_1 ? computeForMode(true) : Promise.resolve(null),
+        ]);
+        const etfResults = filteredItems.map(item => {
+            const todayEntry = todayByIsin ? todayByIsin.get(item.isinCd) : undefined;
+            const mode12_1Entry = mode12_1ByIsin ? mode12_1ByIsin.get(item.isinCd) : undefined;
+            const primaryEntry = excludeRecentMonth ? mode12_1Entry : todayEntry;
+            return {
+                ...item,
+                returns: primaryEntry ? primaryEntry.returns : [null, null, null, null, null, null],
+                momentumScore: primaryEntry ? primaryEntry.momentumScore : null,
+                momentumScoreToday: todayEntry ? todayEntry.momentumScore : null,
+                momentumScore12_1: mode12_1Entry ? mode12_1Entry.momentumScore : null,
+            };
+        });
         return { results: etfResults, actualDate: actualBaseDateStr };
     };
     const calculateStochastic = (data, period) => {
@@ -1369,9 +1393,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 momentumCells += `<td>N/A</td>`;
             }
         });
-        let momentumScoreCell = '<td>N/A</td>';
-        if (item.momentumScore !== null && isFinite(item.momentumScore)) {
-            momentumScoreCell = `<td class="${getChangeClass(item.momentumScore)}">${item.momentumScore.toFixed(2)}</td>`;
+        const isValidScore = (score) => score !== null && score !== undefined && isFinite(score);
+        let score12_1Cell = '<td>N/A</td>';
+        if (isValidScore(item.momentumScore12_1)) {
+            score12_1Cell = `<td class="${getChangeClass(item.momentumScore12_1)}">${item.momentumScore12_1.toFixed(2)}</td>`;
+        }
+        let scoreTodayCell = '<td>N/A</td>';
+        if (isValidScore(item.momentumScoreToday)) {
+            if (isValidScore(item.momentumScore12_1)) {
+                const diff = item.momentumScoreToday - item.momentumScore12_1;
+                const diffSign = diff > 0 ? '+' : '';
+                scoreTodayCell = `<td class="${getChangeClass(item.momentumScoreToday)}">${item.momentumScoreToday.toFixed(2)} <span class="score-diff ${getChangeClass(diff)}">(Δ${diffSign}${diff.toFixed(2)})</span></td>`;
+            }
+            else {
+                scoreTodayCell = `<td class="${getChangeClass(item.momentumScoreToday)}">${item.momentumScoreToday.toFixed(2)}</td>`;
+            }
         }
         row.innerHTML = `
             <td>${currentRank}</td>
@@ -1380,7 +1416,8 @@ document.addEventListener('DOMContentLoaded', () => {
             <td>${formatNumber(item.clpr)}</td>
             <td class="${getChangeClass(change)}">${change > 0 ? '▲' : ''}${change < 0 ? '▼' : ''} ${formatNumber(change)}</td>
             <td class="${getChangeClass(rate)}">${rate.toFixed(2)}%</td>
-            ${momentumScoreCell}
+            ${score12_1Cell}
+            ${scoreTodayCell}
             ${momentumCells}
             <td>${formatNumber(item.nav)}</td>
             <td>${formatLargeNumber(item.trqu, 10000)}</td>
@@ -1744,7 +1781,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
             const pastDate = getPastDate(new Date(selectedDate), 0, rankChangePeriod);
             const [currentData, pastData] = await Promise.all([
-                getRankedEtfsForDate(apiKey, selectedDate, weights, filters, excludeRecentMonthInput.checked),
+                getRankedEtfsForDate(apiKey, selectedDate, weights, filters, excludeRecentMonthInput.checked, true),
                 getRankedEtfsForDate(apiKey, pastDate, weights, filters, excludeRecentMonthInput.checked)
             ]);
             if (!currentData || !currentData.results) {
